@@ -1,9 +1,27 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+@font-face {
+  font-family: "picoopic";
+  src: url("../public/fonts/picoopic-Medium.woff2") format("woff2");
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: "picoopic";
+  src: url("../public/fonts/picoopic-Medium.woff") format("woff");
+  font-weight: normal;
+  font-style: normal;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  /* brand colors */
+  --brand-primary: #00b92d;
+  --brand-primary-dark: #015428;
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
@@ -112,11 +130,32 @@
   --sidebar-ring: oklch(0.556 0 0);
 }
 
+@theme {
+  /* Brand Colors */
+  --color-brand-primary: var(--brand-primary);
+  --color-brand-primary-dark: var(--brand-primary-dark);
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    -webkit-tap-highlight-color: transparent;
   }
+
   body {
-    @apply bg-background text-foreground;
+    @apply bg-white text-black;
   }
+}
+
+body {
+  width: 100vw;
+  height: 100%;
+  font-family: "picoopic", sans-serif;
+}
+
+::-webkit-scrollbar {
+  display: none;
 }
