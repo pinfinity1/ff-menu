@@ -10,27 +10,38 @@ function MenuItemCard({ productDetails }) {
   const [imageUrl, setImageUrl] = useState(null);
   const [shouldLoad, setShouldLoad] = useState(false);
   const cardRef = useRef(null);
+  const observerRef = useRef(null);
 
   useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const entry = entries[0];
-        if (entry.isIntersecting) {
-          setShouldLoad(true);
-          observer.disconnect();
+    const handleIntersect = (entries) => {
+      const entry = entries[0];
+      if (entry.isIntersecting) {
+        setShouldLoad(true);
+
+        if (observerRef.current && cardRef.current) {
+          observerRef.current.unobserve(cardRef.current);
+          observerRef.current.disconnect();
         }
-      },
-      {
-        rootMargin: "100px",
       }
-    );
+    };
 
-    if (cardRef.current) {
-      observer.observe(cardRef.current);
-    }
+    const timer = setTimeout(() => {
+      observerRef.current = new IntersectionObserver(handleIntersect, {
+        rootMargin: "100px",
+      });
 
-    return () => observer.disconnect();
-  }, []);
+      if (cardRef.current) {
+        observerRef.current.observe(cardRef.current);
+      }
+    }, 300);
+
+    return () => {
+      clearTimeout(timer);
+      if (observerRef.current) {
+        observerRef.current.disconnect();
+      }
+    };
+  }, [id]);
 
   useEffect(() => {
     if (!shouldLoad) return;

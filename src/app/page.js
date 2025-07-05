@@ -1,6 +1,6 @@
 import http from "@/app/api/axiosInstance";
-import { Header } from "@/components/Header/Header";
 import { Logo } from "@/components/Logo/Logo";
+import { Header } from "@/components/Header/Header";
 import { MenuItems } from "@/components/MenuItem/MenuItems";
 
 export default async function Home() {

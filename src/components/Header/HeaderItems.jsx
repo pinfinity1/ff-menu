@@ -1,10 +1,9 @@
-"use client";
-import { useCategory } from "@/context/CategoryContext";
-import { useEffect } from "react";
+import { usePublicStore } from "@/app/store/publicStore";
 
 export const HeaderItems = ({ categoryDetail }) => {
   const { id, name } = categoryDetail;
-  const { category, setCategory } = useCategory();
+  const category = usePublicStore((state) => state.category);
+  const setCategory = usePublicStore((state) => state.setCategory);
 
   const handleContext = () => {
     setCategory(categoryDetail);
@@ -19,7 +18,7 @@ export const HeaderItems = ({ categoryDetail }) => {
       onClick={handleContext}
       className={`whitespace-nowrap flex flex-col justify-center items-center px-4 py-3 rounded cursor-pointer transition-all duration-300
         ${
-          category.id !== id
+          category?.id !== id
             ? "bg-brand-primary-dark text-white"
             : "bg-white text-brand-primary-dark"
         }
