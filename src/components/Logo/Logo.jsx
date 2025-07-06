@@ -1,9 +1,13 @@
 import Image from "next/image";
 import { ContactUS } from "./ContactUS";
-import { Drawer, DrawerContent, DrawerTrigger } from "@/components/ui/drawer";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerTitle,
+  DrawerTrigger,
+} from "@/components/ui/drawer";
 import { Utensils } from "lucide-react";
 import MainLogo from "@/public/images/icon.png";
-import { DialogTitle } from "@radix-ui/react-dialog";
 
 export const Logo = () => {
   return (
@@ -26,13 +30,13 @@ export const Logo = () => {
             </div>
           </DrawerTrigger>
           <DrawerContent className={"bg-white"}>
-            <DialogTitle className="pt-10 pb-6">
+            <DrawerTitle className="pt-10 pb-6">
               <div className="relative w-full h-[2px] bg-brand-primary-dark rounded-full">
                 <span className="bg-white text-brand-primary-dark px-4 absolute right-10 -top-3">
                   درباره‌ ما
                 </span>
               </div>
-            </DialogTitle>
+            </DrawerTitle>
             <ContactUS />
           </DrawerContent>
         </Drawer>
