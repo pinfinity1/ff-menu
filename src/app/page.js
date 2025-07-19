@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import http from "@/app/api/axiosInstance";
 import { Logo } from "@/components/Logo/Logo";
 import { Header } from "@/components/Header/Header";
