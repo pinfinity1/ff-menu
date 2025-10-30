@@ -1,11 +1,15 @@
+// file: src/app/api/category/[id]/route.js
 import { NextResponse } from "next/server";
-import { getCategoryById, updateCategory, deleteCategory } from "@/lib/mock-db";
+import { prisma } from "@/lib/db";
 
-// گرفتن یک دسته‌بندی خاص
+// (تابع GET بدون تغییر)
 export async function GET(request, { params }) {
   try {
     const id = parseInt(params.id);
-    const category = getCategoryById(id);
+    const category = await prisma.category.findUnique({
+      where: { id: id },
+    });
+
     if (category) {
       return NextResponse.json(category);
     }
@@ -14,6 +18,7 @@ export async function GET(request, { params }) {
       { status: 404 }
     );
   } catch (error) {
+    console.error(error);
     return NextResponse.json(
       { message: "Internal Server Error" },
       { status: 500 }
@@ -24,20 +29,31 @@ export async function GET(request, { params }) {
 // ویرایش یک دسته‌بندی
 export async function PUT(request, { params }) {
   try {
-    const id = parseInt(params.id);
+    // --- راه‌حل: خطوط را جابجا می‌کنیم ---
+    // ۱. ابتدا request را مصرف می‌کنیم
     const { name } = await request.json();
+    // ۲. سپس به params دسترسی پیدا می‌کنیم
+    const id = parseInt(params.id);
+    // -------------------------------------
+
     if (!name) {
       return NextResponse.json({ message: "نام الزامی است" }, { status: 400 });
     }
-    const updatedCategory = updateCategory(id, name);
-    if (updatedCategory) {
-      return NextResponse.json(updatedCategory);
-    }
-    return NextResponse.json(
-      { message: "دسته‌بندی یافت نشد" },
-      { status: 404 }
-    );
+
+    const updatedCategory = await prisma.category.update({
+      where: { id: id },
+      data: { name: name },
+    });
+
+    return NextResponse.json(updatedCategory);
   } catch (error) {
+    console.error(error);
+    if (error.code === "P2025") {
+      return NextResponse.json(
+        { message: "دسته‌بندی یافت نشد" },
+        { status: 404 }
+      );
+    }
     return NextResponse.json(
       { message: "Internal Server Error" },
       { status: 500 }
@@ -48,15 +64,30 @@ export async function PUT(request, { params }) {
 // حذف یک دسته‌بندی
 export async function DELETE(request, { params }) {
   try {
+    // --- راه‌حل: request را "مصرف" می‌کنیم ---
+    // این به Next.js می‌فهماند که این یک روت داینامیک است
+    await request.text(); // (یک مصرف بی‌خطر برای یک درخواست بدون بدنه)
+    // -------------------------------------
+
     const id = parseInt(params.id);
-    deleteCategory(id);
+
+    await prisma.category.delete({
+      where: { id: id },
+    });
+
     return NextResponse.json({ message: "دسته‌بندی حذف شد" }, { status: 200 });
   } catch (error) {
-    // اگر دسته‌بندی محصول داشته باشد
-    if (error.message.includes("products")) {
+    console.error(error);
+    if (error.code === "P2003") {
       return NextResponse.json(
         { message: "این دسته‌بندی دارای محصول است و قابل حذف نیست." },
         { status: 400 }
+      );
+    }
+    if (error.code === "P2025") {
+      return NextResponse.json(
+        { message: "دسته‌بندی یافت نشد" },
+        { status: 404 }
       );
     }
     return NextResponse.json(

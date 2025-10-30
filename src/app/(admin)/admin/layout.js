@@ -8,13 +8,11 @@ import {
   Sheet,
   SheetContent,
   SheetTrigger,
-  // این موارد را اضافه می‌کنیم
   SheetHeader,
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet"; //
 
-// کامپوننت لینک‌های منو (بدون تغییر)
 const NavLinks = () => (
   <nav className="flex flex-col gap-4 p-4 text-sm font-medium">
     <Link
@@ -56,7 +54,7 @@ export default function AdminLayout({ children }) {
       </aside>
 
       <div className="flex flex-col sm:pr-60">
-        <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-4 border-b bg-background px-4 sm:justify-end sm:px-6">
+        <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-4 border-b bg-background px-4  sm:px-6">
           <div className="sm:hidden">
             <Sheet>
               <SheetTrigger asChild>
