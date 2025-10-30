@@ -1,123 +1,34 @@
-"use client";
-
 import Image from "next/image";
-import http from "@/app/api/axiosInstance";
-import { useEffect, useRef, useState } from "react";
-import Logo from "@/public/images/icon.png";
+import Logo from "@/public/images/icon.png"; //
 
-const imageCache = new Map();
+// تابع کمکی را می‌توانیم بیرون کامپوننت تعریف کنیم
+const formatedNumber = (num) => Number(num).toLocaleString("fa-IR");
 
+/**
+ * این کامپوننت دیگر "use client" نیست.
+ * این یک سرور کامپوننت (RSC) بسیار سریع است.
+ */
 function MenuItemCard({ productDetails }) {
-  const { name, price, description, id } = productDetails;
-
-  const [imageUrl, setImageUrl] = useState(null);
-  const [shouldLoad, setShouldLoad] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-
-  const cardRef = useRef(null);
-  const observerRef = useRef(null);
-
-  useEffect(() => {
-    const handleIntersect = (entries) => {
-      const entry = entries[0];
-      if (entry.isIntersecting) {
-        setShouldLoad(true);
-
-        if (observerRef.current && cardRef.current) {
-          observerRef.current.unobserve(cardRef.current);
-          observerRef.current.disconnect();
-        }
-      }
-    };
-
-    const timer = setTimeout(() => {
-      observerRef.current = new IntersectionObserver(handleIntersect, {
-        rootMargin: "100px",
-      });
-
-      if (cardRef.current) {
-        observerRef.current.observe(cardRef.current);
-      }
-    }, 1000);
-
-    return () => {
-      clearTimeout(timer);
-      if (observerRef.current) {
-        observerRef.current.disconnect();
-      }
-    };
-  }, [id]);
-
-  useEffect(() => {
-    if (!shouldLoad) return;
-
-    const fetchImage = async () => {
-      setIsLoading(true);
-
-      if (imageCache.has(id)) {
-        setImageUrl(imageCache.get(id));
-        setIsLoading(false);
-        return;
-      }
-
-      try {
-        const response = await http({
-          url: `/product/images/${id}`,
-          method: "GET",
-          responseType: "arraybuffer",
-        });
-
-        if (response.data) {
-          const base64 = Buffer.from(response.data, "binary").toString(
-            "base64"
-          );
-          const mimeType = response.headers["content-type"] || "image/jpeg";
-          const dataUrl = `data:${mimeType};base64,${base64}`;
-
-          imageCache.set(id, dataUrl);
-          setImageUrl(dataUrl);
-        }
-      } catch (error) {
-        console.error("Error fetching product image:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchImage();
-  }, [shouldLoad, id]);
-
-  const formatedNumber = (num) => Number(num).toLocaleString("fa-IR");
-
-  // console.log(imageCache);
+  // ما imageUrl را مستقیماً از productDetails دریافت می‌کنیم
+  const { name, price, description, imageUrl } = productDetails;
 
   return (
-    <div
-      ref={cardRef}
-      className="w-full flex flex-col p-2 bg-white rounded text-black"
-    >
+    <div className="w-full flex flex-col p-2 bg-white rounded text-black">
       <div className="w-[280px] h-[280px] rounded overflow-hidden flex items-center justify-center shadow">
-        {isLoading ? (
-          <div className="w-full h-full bg-brand-primary-dark/20 animate-pulse flex items-center justify-center">
-            <Image
-              src={Logo}
-              width={80}
-              height={80}
-              alt={name}
-              className="opacity-60"
-            />
-          </div>
-        ) : imageUrl ? (
-          <Image
-            src={imageUrl}
-            width={160}
-            height={160}
-            alt={name}
-            className="object-cover w-full h-full"
-          />
-        ) : (
-          <Image src={Logo} width={80} height={80} alt={name} />
-        )}
+        {/* کامپوننت <Image> بهینه شده Next.js:
+          1. بهینه‌سازی خودکار تصویر
+          2. بارگذاری تنبل (Lazy Loading) خودکار
+          3. استفاده از placeholder (در صورت نیاز)
+        */}
+        <Image
+          // اگر imageUrl وجود داشت آن را، وگرنه لوگوی پیش‌فرض را نشان بده
+          src={imageUrl || Logo}
+          width={280} // دقیقا برابر با کانتینر
+          height={280} // دقیقا برابر با کانتینر
+          alt={name}
+          className="object-cover w-full h-full"
+          // priority={false} // (پیش‌فرض) یعنی تنبل لود شود
+        />
       </div>
       <div className="w-full mt-2">
         <p className="my-2 font-bold text-[20px] tracking-wider">{name}</p>
@@ -128,6 +39,7 @@ function MenuItemCard({ productDetails }) {
         <p className="text-left text-[16px] flex items-center justify-end">
           {formatedNumber(price)}
           <span className="pr-0.5 pt-1.5 rounded text-brand-primary-dark">
+            {/* SVG تومان */}
             <svg
               xmlns="http://www.w3.org/2000/svg"
               width="20"
