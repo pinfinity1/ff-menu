@@ -1,23 +1,17 @@
-// file: src/app/api/products/route.js
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/db"; // ایمپورت Prisma
+import { prisma } from "@/lib/db";
 
 export async function GET() {
   try {
-    // گرفتن محصولات همراه با نام دسته‌بندی آن‌ها (با استفاده از relation)
     const products = await prisma.product.findMany({
       include: {
         category: {
-          select: { name: true }, // فقط نام دسته‌بندی را انتخاب کن
+          select: { name: true },
         },
       },
-      // (اختیاری) مرتب‌سازی بر اساس ID
-      orderBy: {
-        id: "asc",
-      },
+      orderBy: { order: "asc" },
     });
 
-    // فرمت‌دهی داده‌ها برای کامپوننت ProductClient
     const formattedProducts = products.map((product) => ({
       ...product,
       categoryName: product.category.name,
@@ -36,8 +30,6 @@ export async function GET() {
 export async function POST(request) {
   try {
     const data = await request.json();
-
-    // اعتبارسنجی ساده
     if (!data.name || !data.price || !data.categoryId) {
       return NextResponse.json(
         { message: "فیلدهای اجباری ناقص هستند" },
@@ -45,12 +37,22 @@ export async function POST(request) {
       );
     }
 
+    const categoryId = parseInt(data.categoryId);
+
+    const maxOrderProduct = await prisma.product.findFirst({
+      where: { categoryId: categoryId },
+      orderBy: { order: "desc" },
+      select: { order: true },
+    });
+    const newOrder = (maxOrderProduct?.order ?? 0) + 1;
+
     const productData = {
       name: data.name,
       description: data.description,
       price: parseFloat(data.price),
-      categoryId: parseInt(data.categoryId),
+      categoryId: categoryId,
       imageUrl: data.imageUrl || "/images/icon.png",
+      order: newOrder, // <-- ۳. ذخیره order جدید
     };
 
     const newProduct = await prisma.product.create({

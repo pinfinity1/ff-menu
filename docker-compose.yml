@@ -2,19 +2,24 @@ services:
   app:
     build:
       context: .
-      dockerfile: build.Dockerfile
+      dockerfile: Dockerfile
     ports:
       - "3000:3000"
     environment:
       DATABASE_URL: "postgresql://myuser:mypassword@db:5432/mydb"
+
+      S3_ENDPOINT_URL: "http://minio:9000"
+      S3_ACCESS_KEY_ID: "minioadmin"
+      S3_SECRET_ACCESS_KEY: "minioadmin"
+      S3_BUCKET_NAME: "ff-menu-images"
+
+      NEXT_PUBLIC_S3_PUBLIC_URL: "http://localhost:9000/ff-menu-images"
+
     depends_on:
       - db
+      - minio
     command: >
-      bash -c "echo 'Waiting for DB to be ready...' && 
-               # این دستور schema.prisma را با دیتابیس همگام می‌کند
-               npx prisma db push && 
-               # سپس برنامه را با عملکرد بهینه (stateful) اجرا می‌کند
-               npm run start"
+      bash -c "npx prisma db push && npm run start"
 
   db:
     image: postgres:15
@@ -28,5 +33,20 @@ services:
     ports:
       - "5432:5432"
 
+  minio:
+    image: minio/minio:latest
+    restart: always
+    environment:
+      MINIO_ROOT_USER: "minioadmin"
+      MINIO_ROOT_PASSWORD: "minioadmin"
+      MINIO_BROWSER_CORS_ALLOW_ORIGIN: "http://localhost:3000"
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    command: server /data --console-address ":9001"
+
 volumes:
   postgres_data:
+  minio_data:

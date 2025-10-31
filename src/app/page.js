@@ -1,5 +1,3 @@
-export const dynamic = "force-dynamic";
-
 // import { Logo } from "@/components/Logo/Logo";
 // import { Header } from "@/components/Header/Header";
 // import { MenuItems } from "@/components/MenuItem/MenuItems";

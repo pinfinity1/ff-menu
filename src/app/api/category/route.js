@@ -10,6 +10,7 @@ export async function GET(request) {
     if (eager === "true") {
       data = await prisma.category.findMany({
         include: { products: true },
+        orderBy: { order: "asc" },
       });
     } else {
       const categories = await prisma.category.findMany({
@@ -18,11 +19,13 @@ export async function GET(request) {
             select: { products: true },
           },
         },
+        orderBy: { order: "asc" },
       });
       data = categories.map((c) => ({
         id: c.id,
         name: c.name,
         productCount: c._count.products,
+        order: c.order,
       }));
     }
 
@@ -46,9 +49,16 @@ export async function POST(request) {
       );
     }
 
+    const maxOrderCategory = await prisma.category.findFirst({
+      orderBy: { order: "desc" },
+      select: { order: true },
+    });
+    const newOrder = (maxOrderCategory?.order ?? 0) + 1;
+
     const newCategory = await prisma.category.create({
       data: {
         name: name,
+        order: newOrder,
       },
     });
 

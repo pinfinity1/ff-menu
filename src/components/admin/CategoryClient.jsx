@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useRouter } from "next/navigation";
-import { Plus, Edit, Trash2 } from "lucide-react";
+import { Plus, Edit, Trash2, ArrowUp, ArrowDown, Loader2 } from "lucide-react";
 
 import {
   Table,
@@ -41,13 +41,17 @@ const formSchema = z.object({
   name: z.string().min(1, { message: "نام دسته‌بندی الزامی است." }),
 });
 
-export function CategoryClient({ initialData }) {
-  const router = useRouter(); // برای رفرش کردن صفحه بعد از تغییر
-  const [categories, setCategories] = useState(initialData);
+export function CategoryClient() {
+  const router = useRouter();
+
+  const [categories, setCategories] = useState([]);
+  const [isPageLoading, setIsPageLoading] = useState(true);
+
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
   const form = useForm({
@@ -55,9 +59,27 @@ export function CategoryClient({ initialData }) {
     defaultValues: { name: "" },
   });
 
-  // تابع رفرش داده‌ها
+  const fetchCategories = useCallback(async () => {
+    if (!isSubmitting) setIsPageLoading(true);
+
+    try {
+      const res = await fetch("/api/category");
+      if (!res.ok) throw new Error("Failed to fetch");
+      const data = await res.json();
+      setCategories(data);
+    } catch (error) {
+      setErrorMessage("خطا در بارگیری دسته‌بندی‌ها");
+    } finally {
+      setIsPageLoading(false);
+    }
+  }, [isSubmitting]);
+
+  useEffect(() => {
+    fetchCategories();
+  }, [fetchCategories]);
+
   const refreshData = () => {
-    router.refresh();
+    fetchCategories();
   };
 
   // باز کردن فرم برای "ایجاد"
@@ -85,7 +107,7 @@ export function CategoryClient({ initialData }) {
 
   // تابع ارسال فرم (ایجاد یا ویرایش)
   const onSubmit = async (values) => {
-    setIsLoading(true);
+    setIsSubmitting(true);
     setErrorMessage("");
     const url = selectedCategory
       ? `/api/category/${selectedCategory.id}` // ویرایش
@@ -101,7 +123,7 @@ export function CategoryClient({ initialData }) {
 
       if (res.ok) {
         setIsFormOpen(false);
-        refreshData(); // مهم: صفحه را رفرش می‌کند تا داده‌های جدید را از سرور بگیرد
+        refreshData();
       } else {
         const data = await res.json();
         setErrorMessage(data.message || "خطایی رخ داد");
@@ -109,13 +131,13 @@ export function CategoryClient({ initialData }) {
     } catch (error) {
       setErrorMessage("خطا در ارتباط با سرور");
     }
-    setIsLoading(false);
+    setIsSubmitting(false);
   };
 
   // تابع حذف
   const onDelete = async () => {
     if (!selectedCategory) return;
-    setIsLoading(true);
+    setIsSubmitting(true);
     setErrorMessage("");
 
     try {
@@ -133,7 +155,28 @@ export function CategoryClient({ initialData }) {
     } catch (error) {
       setErrorMessage("خطا در ارتباط با سرور");
     }
-    setIsLoading(false);
+    setIsSubmitting(false);
+  };
+
+  const handleReorder = async (categoryId, direction) => {
+    setIsSubmitting(true); // از isLoading موجود استفاده می‌کنیم
+    try {
+      const res = await fetch(`/api/category/${categoryId}/reorder`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ direction: direction }),
+      });
+
+      if (res.ok) {
+        refreshData(); // لیست را رفرش می‌کنیم تا ترتیب جدید نمایش داده شود
+      } else {
+        const data = await res.json();
+        setErrorMessage(data.message || "خطا در جابجایی");
+      }
+    } catch (error) {
+      setErrorMessage("خطا در ارتباط با سرور");
+    }
+    setIsSubmitting(false);
   };
 
   return (
@@ -150,47 +193,75 @@ export function CategoryClient({ initialData }) {
 
       {/* --- جدول نمایش --- */}
       <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>نام دسته‌بندی</TableHead>
-              <TableHead>تعداد محصولات</TableHead>
-              <TableHead className="w-[100px]">عملیات</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {categories.length === 0 ? (
+        {isPageLoading ? (
+          // --- این لودینگ زیبای شماست ---
+          <div className="flex items-center justify-center min-h-[200px]">
+            <Loader2 className="h-8 w-8 animate-spin text-brand-primary" />
+            <p className="mr-2">در حال بارگیری داده‌ها...</p>
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
               <TableRow>
-                <TableCell colSpan={3} className="text-center">
-                  هیچ دسته‌بندی یافت نشد.
-                </TableCell>
+                <TableHead>نام دسته‌بندی</TableHead>
+                <TableHead>تعداد محصولات</TableHead>
+                <TableHead className="w-[180px]">عملیات</TableHead>
               </TableRow>
-            ) : (
-              categories.map((category) => (
-                <TableRow key={category.id}>
-                  <TableCell className="font-medium">{category.name}</TableCell>
-                  <TableCell>{category.productCount}</TableCell>
-                  <TableCell className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => handleOpenEdit(category)}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      size="icon"
-                      onClick={() => handleOpenDelete(category)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+            </TableHeader>
+            <TableBody>
+              {categories.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={3} className="text-center">
+                    هیچ دسته‌بندی یافت نشد.
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+              ) : (
+                categories.map((category, index) => (
+                  <TableRow key={category.id}>
+                    <TableCell className="font-medium">
+                      {category.name}
+                    </TableCell>
+                    <TableCell>{category.productCount}</TableCell>
+                    <TableCell className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => handleReorder(category.id, "up")}
+                        disabled={isSubmitting || index === 0} // دکمه بالا برای آیتم اول غیرفعال است
+                      >
+                        <ArrowUp className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => handleReorder(category.id, "down")}
+                        disabled={
+                          isSubmitting || index === categories.length - 1
+                        } // دکمه پایین برای آیتم آخر غیرفعال است
+                      >
+                        <ArrowDown className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => handleOpenEdit(category)}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="icon"
+                        onClick={() => handleOpenDelete(category)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        )}
       </div>
 
       {/* --- دیالوگ فرم (ایجاد/ویرایش) --- */}
@@ -232,10 +303,10 @@ export function CategoryClient({ initialData }) {
                 </DialogClose>
                 <Button
                   type="submit"
-                  disabled={isLoading}
+                  disabled={isSubmitting}
                   className="bg-brand-primary hover:bg-brand-primary/90"
                 >
-                  {isLoading ? "در حال ذخیره..." : "ذخیره"}
+                  {isSubmitting ? "در حال ذخیره..." : "ذخیره"}
                 </Button>
               </DialogFooter>
             </form>
@@ -268,10 +339,10 @@ export function CategoryClient({ initialData }) {
             </DialogClose>
             <Button
               onClick={onDelete}
-              disabled={isLoading}
+              disabled={isSubmitting}
               variant="destructive"
             >
-              {isLoading ? "در حال حذف..." : "حذف کن"}
+              {isSubmitting ? "در حال حذف..." : "حذف کن"}
             </Button>
           </DialogFooter>
         </DialogContent>

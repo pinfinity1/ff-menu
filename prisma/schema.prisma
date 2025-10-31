@@ -17,6 +17,7 @@ generator client {
 model Category {
   id       Int       @id @default(autoincrement())
   name     String
+  order    Int       @default(0)
   products Product[]
 }
 
@@ -26,6 +27,8 @@ model Product {
   description String?  
   price       Float    
   imageUrl    String?  @default("/images/icon.png") 
+
+  order       Int      @default(0)
 
   category   Category @relation(fields: [categoryId], references: [id])
   categoryId Int      
