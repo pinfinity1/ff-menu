@@ -19,8 +19,8 @@ async function swapOrder(categoryA, categoryB) {
 
 export async function PATCH(request, { params }) {
   try {
-    const id = parseInt(params.id);
     const { direction } = await request.json(); // "up" or "down"
+    const id = parseInt(params.id);
 
     const categoryA = await prisma.category.findUnique({ where: { id: id } });
     if (!categoryA) {

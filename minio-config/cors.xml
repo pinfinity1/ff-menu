@@ -4,7 +4,7 @@
     <AllowedMethod>PUT</AllowedMethod>
     <AllowedMethod>GET</AllowedMethod>
     <AllowedMethod>HEAD</AllowedMethod>
-    <AllowedHeader>Origin</AllowedHeader>
-    <AllowedHeader>Content-Type</AllowedHeader>
+    <AllowedMethod>OPTIONS</AllowedMethod> 
+    <AllowedHeader>*</AllowedHeader> 
   </CORSRule>
 </CORSConfiguration>
