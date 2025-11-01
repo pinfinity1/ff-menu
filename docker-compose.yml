@@ -1,0 +1,67 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: sh -c "npx prisma generate && npm run dev"
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/.next
+    environment:
+      DATABASE_URL: "postgresql://user:password@db:5432/mydb"
+      S3_ENDPOINT_URL: "http://minio:9000"
+      S3_ACCESS_KEY_ID: "admin123"
+      S3_SECRET_ACCESS_KEY: "strongpassword123"
+      S3_BUCKET_NAME: "ff-menu-images"
+      NEXT_PUBLIC_S3_PUBLIC_URL: "http://localhost:9000/ff-menu-images"
+    depends_on:
+      - db
+      - minio-setup
+
+  db:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: "user"
+      POSTGRES_PASSWORD: "password"
+      POSTGRES_DB: "mydb"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  minio:
+    image: minio/minio:latest
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: "admin123"
+      MINIO_ROOT_PASSWORD: "strongpassword123"
+    command: server /data --console-address ":9001"
+    volumes:
+      - miniodata:/data
+
+  minio-setup:
+    image: minio/mc:latest
+    depends_on:
+      - minio
+    volumes:
+      - ./minio-config:/config.d
+    entrypoint: >
+      /bin/sh -c "
+      sleep 10;
+      echo '🚀 Setting up MinIO...';
+      mc alias set myminio http://minio:9000 admin123 strongpassword123;
+      mc mb --ignore-existing myminio/ff-menu-images;
+      mc anonymous set public myminio/ff-menu-images;
+      # --- راه‌حل MinIO: به فایل cors.xml اشاره می‌کند ---
+      mc cors set myminio/ff-menu-images /config.d/cors.xml;
+      echo '✅ MinIO bucket and CORS configured successfully!';
+      "
+
+volumes:
+  pgdata: {}
+  miniodata: {}
