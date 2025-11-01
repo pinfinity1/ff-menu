@@ -2,7 +2,7 @@
   "CORSConfiguration": [
     {
       "AllowedHeaders": ["*"],
-      "AllowedMethods": ["PUT", "GET", "HEAD"],
+      "AllowedMethods": ["PUT", "GET", "HEAD", "OPTIONS"],
       "AllowedOrigins": ["http://localhost:3000"],
       "ExposeHeaders": []
     }
