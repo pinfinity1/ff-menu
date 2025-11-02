@@ -19,56 +19,41 @@ export function ImageUploader({ value, onUploadComplete, onRemove }) {
     setUploadProgress(0);
 
     try {
-      const res = await fetch("/api/upload", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fileType: file.type,
-          fileSize: file.size,
-        }),
-      });
-
-      if (!res.ok) {
-        throw new Error("خطا در دریافت لینک آپلود");
-      }
-
-      const { signedUrl, publicUrl } = await res.json();
+      const formData = new FormData();
+      formData.append("file", file);
 
       const xhr = new XMLHttpRequest();
-      xhr.open("PUT", signedUrl, true);
-      xhr.setRequestHeader("Content-Type", file.type);
+      xhr.open("POST", "/api/upload", true);
 
-      xhr.upload.onprogress = (event) => {
-        if (event.lengthComputable) {
-          const percentComplete = Math.round(
-            (event.loaded / event.total) * 100
-          );
-          setUploadProgress(percentComplete);
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) {
+          setUploadProgress(Math.round((e.loaded / e.total) * 100));
         }
       };
 
       xhr.onload = () => {
-        if (xhr.status === 200) {
-          onUploadComplete(publicUrl);
-        } else {
-          throw new Error("خطا در آپلود فایل به سرور");
-        }
         setIsUploading(false);
+        if (xhr.status === 200) {
+          const res = JSON.parse(xhr.responseText);
+          onUploadComplete(res.publicUrl);
+        } else {
+          setError("خطا در آپلود فایل به سرور");
+        }
       };
 
       xhr.onerror = () => {
-        throw new Error("خطا در شبکه هنگام آپلود");
+        setIsUploading(false);
+        setError("خطا در شبکه هنگام آپلود");
       };
 
-      xhr.send(file);
+      xhr.send(formData);
     } catch (err) {
-      setError(err.message || "خطایی رخ داد");
       setIsUploading(false);
+      setError(err.message || "خطایی رخ داد");
     }
   };
 
   if (value) {
-    // --- نمایش عکس در صورت وجود ---
     return (
       <div className="relative w-full h-48 rounded-md overflow-hidden border">
         <Image
@@ -82,7 +67,7 @@ export function ImageUploader({ value, onUploadComplete, onRemove }) {
           variant="destructive"
           size="icon"
           className="absolute top-2 left-2 z-10 size-8"
-          onClick={() => onRemove("")} // URL را خالی می‌کند
+          onClick={() => onRemove("")}
         >
           <X className="size-4" />
         </Button>
@@ -91,7 +76,6 @@ export function ImageUploader({ value, onUploadComplete, onRemove }) {
   }
 
   return (
-    // --- نمایش بخش آپلود ---
     <div className="w-full">
       <label className="relative flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50">
         {isUploading ? (
