@@ -50,17 +50,18 @@ const formSchema = z.object({
   description: z.string().optional(),
   price: z.coerce.number().min(0, { message: "قیمت باید معتبر باشد." }),
   categoryId: z.string().min(1, { message: "انتخاب دسته‌بندی الزامی است." }),
-  imageUrl: z
-    .string()
-    .url({ message: "آدرس عکس معتبر نیست." })
-    .optional()
-    .or(z.literal("")),
+  imageUrl: z.union([
+    z
+      .string()
+      .url({ message: "آدرس عکس معتبر نیست." })
+      .optional()
+      .or(z.literal("")),
+    z.instanceof(File).optional(),
+  ]),
 });
 
 // کامپوننت دیگر props داده‌ای ندارد
 export function ProductClient() {
-  const router = useRouter();
-
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [isPageLoading, setIsPageLoading] = useState(true); // لودینگ اولیه صفحه
@@ -162,37 +163,70 @@ export function ProductClient() {
     setIsDeleteOpen(true);
   };
 
-  // عملیات فرم (ایجاد/ویرایش)
+  const uploadFile = async (file) => {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error("خطا در آپلود فایل به سرور");
+      }
+      const res = await response.json();
+      return res.publicUrl;
+    } catch (err) {
+      console.error(err);
+      throw err; // ارور را پرتاب می‌کنیم تا onSubmit آن را بگیرد
+    }
+  };
+
   const onSubmit = async (values) => {
     setIsSubmitting(true);
     setErrorMessage("");
 
-    const data = {
-      ...values,
-      imageUrl: values.imageUrl || "/images/icon.png",
-    };
-
-    const url = selectedProduct
-      ? `/api/products/${selectedProduct.id}`
-      : "/api/products";
-    const method = selectedProduct ? "PUT" : "POST";
-
     try {
+      let finalImageUrl = "/images/icon.png"; // مقدار پیش‌فرض اگر عکسی نباشد
+
+      // بررسی وضعیت عکس
+      if (values.imageUrl instanceof File) {
+        // حالت ۱: کاربر فایل جدیدی انتخاب کرده -> آن را آپلود کن
+        finalImageUrl = await uploadFile(values.imageUrl);
+      } else if (typeof values.imageUrl === "string" && values.imageUrl) {
+        // حالت ۲: کاربر فایل قبلی را تغییر نداده -> از همان URL رشته‌ای استفاده کن
+        finalImageUrl = values.imageUrl;
+      }
+      // حالت ۳: کاربر عکس را حذف کرده (values.imageUrl برابر "" است) -> از همان مقدار پیش‌فرض استفاده می‌شود
+
+      const productData = {
+        ...values,
+        imageUrl: finalImageUrl, // URL نهایی را در دیتا قرار بده
+      };
+
+      const url = selectedProduct
+        ? `/api/products/${selectedProduct.id}`
+        : "/api/products";
+      const method = selectedProduct ? "PUT" : "POST";
+
       const res = await fetch(url, {
         method: method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify(productData),
       });
 
       if (res.ok) {
         setIsFormOpen(false);
-        refreshData(); // <-- Refetch!
+        refreshData();
       } else {
         const data = await res.json();
         setErrorMessage(data.message || "خطایی رخ داد");
       }
     } catch (error) {
-      setErrorMessage("خطا در ارتباط با سرور");
+      // این خطا ممکن است از تابع uploadFile یا از fetch اصلی بیاید
+      setErrorMessage(error.message || "خطا در ارتباط با سرور");
     }
     setIsSubmitting(false);
   };
@@ -479,20 +513,15 @@ export function ProductClient() {
                     <FormLabel>عکس محصول</FormLabel>
                     <FormControl>
                       <ImageUploader
-                        value={field.value} // آدرس عکس فعلی
-                        onUploadComplete={(url) => {
-                          field.onChange(url); // آپدیت فرم با URL جدید
-                        }}
-                        onRemove={() => {
-                          field.onChange(""); // حذف عکس
-                        }}
+                        value={field.value}
+                        onFileChange={field.onChange} // ارسال آبجکت File به فرم
+                        onRemove={field.onChange} // ارسال "" به فرم
                       />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-
               {errorMessage && (
                 <p className="text-sm text-destructive">{errorMessage}</p>
               )}
@@ -512,7 +541,11 @@ export function ProductClient() {
                   disabled={isSubmitting}
                   className="bg-brand-primary hover:bg-brand-primary/90"
                 >
-                  {isSubmitting ? "در حال ذخیره..." : "ذخیره"}
+                  {isSubmitting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    "ذخیره"
+                  )}
                 </Button>
               </DialogFooter>
             </form>
