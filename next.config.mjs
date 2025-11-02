@@ -4,7 +4,7 @@ const nextConfig = {
     remotePatterns: [
       {
         protocol: "http",
-        hostname: "localhost",
+        hostname: "minio",
         port: "9000", // پورت MinIO
         pathname: "/ff-menu-images/**", // نام باکت شما
       },
