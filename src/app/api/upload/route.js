@@ -1,17 +1,7 @@
-// file: src/app/api/upload/route.js
 import { NextResponse } from "next/server";
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { PutObjectCommand } from "@aws-sdk/client-s3";
 import crypto from "crypto";
-
-const s3Client = new S3Client({
-  region: "auto",
-  endpoint: process.env.S3_ENDPOINT_INTERNAL, // http://minio:9000
-  credentials: {
-    accessKeyId: process.env.S3_ACCESS_KEY_ID,
-    secretAccessKey: process.env.S3_SECRET_ACCESS_KEY,
-  },
-  forcePathStyle: true,
-});
+import { s3Client, S3_BUCKET_NAME, NEXT_PUBLIC_S3_PUBLIC_URL } from "@/lib/s3";
 
 const generateFileName = (bytes = 16) =>
   crypto.randomBytes(bytes).toString("hex");
@@ -32,15 +22,15 @@ export async function POST(request) {
     const buffer = Buffer.from(arrayBuffer);
 
     const putCommand = new PutObjectCommand({
-      Bucket: process.env.S3_BUCKET_NAME,
+      Bucket: S3_BUCKET_NAME,
       Key: fileName,
       Body: buffer,
       ContentType: file.type,
     });
 
-    await s3Client.send(putCommand);
+    await s3Client.send(putCommand); // <-- از کلاینت ایمپورت شده
 
-    const publicUrl = `${process.env.NEXT_PUBLIC_S3_PUBLIC_URL}/${fileName}`;
+    const publicUrl = `${NEXT_PUBLIC_S3_PUBLIC_URL}/${fileName}`; // <-- از متغیر ایمپورت شده
 
     return NextResponse.json({ publicUrl });
   } catch (error) {

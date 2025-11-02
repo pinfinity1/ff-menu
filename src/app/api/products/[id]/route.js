@@ -1,6 +1,6 @@
-// file: src/app/api/products/[id]/route.js
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { deleteFileFromS3 } from "@/lib/s3";
 
 export async function GET(request, { params }) {
   try {
@@ -22,14 +22,12 @@ export async function GET(request, { params }) {
   }
 }
 
+// تابع PUT (ویرایش) آپدیت می‌شود
 export async function PUT(request, { params }) {
   try {
-    // ۱. ابتدا request را مصرف می‌کنیم (برای سازگاری با Next.js 15)
-    const data = await request.json();
-    // ۲. سپس params را می‌خوانیم
+    const data = await request.json(); // ۱. دیتای جدید از فرم
     const id = parseInt(params.id);
 
-    // اعتبارسنجی
     if (!data.name || !data.price || !data.categoryId) {
       return NextResponse.json(
         { message: "فیلدهای اجباری ناقص هستند" },
@@ -37,14 +35,39 @@ export async function PUT(request, { params }) {
       );
     }
 
+    // ۲. محصول قدیمی را از دیتابیس می‌خوانیم تا URL عکس قبلی را داشته باشیم
+    const oldProduct = await prisma.product.findUnique({
+      where: { id: id },
+      select: { imageUrl: true }, // فقط به آدرس عکس نیاز داریم
+    });
+
+    if (!oldProduct) {
+      return NextResponse.json({ message: "محصول یافت نشد" }, { status: 404 });
+    }
+
+    const oldImageUrl = oldProduct.imageUrl;
+    const newImageUrl = data.imageUrl;
+
+    // ۳. بررسی می‌کنیم که آیا عکس قدیمی باید حذف شود؟
+    // (یعنی عکس قدیمی وجود داشته، با عکس جدید متفاوت بوده، و عکس پیش‌فرض هم نبوده)
+    if (
+      oldImageUrl &&
+      oldImageUrl !== newImageUrl &&
+      oldImageUrl !== "/images/icon.png"
+    ) {
+      await deleteFileFromS3(oldImageUrl); // <-- حذف عکس قدیمی از MinIO
+    }
+
+    // ۴. آماده‌سازی دیتای نهایی
     const productData = {
       name: data.name,
       description: data.description,
       price: parseFloat(data.price),
       categoryId: parseInt(data.categoryId),
-      imageUrl: data.imageUrl || "/images/icon.png",
+      imageUrl: newImageUrl || "/images/icon.png", // اگر عکس جدید "" بود، پیش‌فرض را بگذار
     };
 
+    // ۵. دیتابیس را با اطلاعات جدید آپدیت می‌کنیم
     const updated = await prisma.product.update({
       where: { id: id },
       data: productData,
@@ -63,16 +86,30 @@ export async function PUT(request, { params }) {
   }
 }
 
+// تابع DELETE (حذف) آپدیت می‌شود
 export async function DELETE(request, { params }) {
   try {
-    // (مصرف request برای سازگاری با Next.js 15)
-    await request.text();
-
+    await request.text(); // (مصرف request برای سازگاری)
     const id = parseInt(params.id);
 
+    // ۱. محصول را از دیتابیس می‌خوانیم تا URL عکس را داشته باشیم
+    const productToDelete = await prisma.product.findUnique({
+      where: { id: id },
+      select: { imageUrl: true },
+    });
+
+    if (!productToDelete) {
+      return NextResponse.json({ message: "محصول یافت نشد" }, { status: 404 });
+    }
+
+    // ۲. ابتدا محصول را از دیتابیس حذف می‌کنیم
     await prisma.product.delete({
       where: { id: id },
     });
+
+    // ۳. سپس عکس آن را از MinIO حذف می‌کنیم
+    // (این کار را بعد از حذف دیتابیس انجام می‌دهیم تا اگر دیتابیس فیل شد، عکس الکی پاک نشود)
+    await deleteFileFromS3(productToDelete.imageUrl);
 
     return NextResponse.json({ message: "محصول حذف شد" });
   } catch (error) {
