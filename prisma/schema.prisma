@@ -33,3 +33,9 @@ model Product {
   category   Category @relation(fields: [categoryId], references: [id])
   categoryId Int      
 }
+
+model User {
+  id           Int    @id @default(autoincrement())
+  username     String @unique
+  passwordHash String 
+}
