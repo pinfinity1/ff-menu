@@ -45,6 +45,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ImageUploader } from "./ImageUploader";
 
+// (formSchema بدون تغییر)
 const formSchema = z.object({
   name: z.string().min(1, { message: "نام محصول الزامی است." }),
   description: z.string().optional(),
@@ -60,12 +61,15 @@ const formSchema = z.object({
   ]),
 });
 
-// کامپوننت دیگر props داده‌ای ندارد
-export function ProductClient() {
-  const [products, setProducts] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [isPageLoading, setIsPageLoading] = useState(true); // لودینگ اولیه صفحه
-  const [isSubmitting, setIsSubmitting] = useState(false); // لودینگ عملیات (فرم/حذف/جابجایی)
+// --- ۱. دریافت initialProducts و initialCategories به عنوان props ---
+export function ProductClient({ initialProducts, initialCategories }) {
+  // --- ۲. استفاده از props برای مقداردهی اولیه state ---
+  const [products, setProducts] = useState(initialProducts || []);
+  const [categories, setCategories] = useState(initialCategories || []);
+
+  // --- ۳. لودینگ اولیه صفحه حالا false است، چون داده‌ها آماده‌اند ---
+  const [isPageLoading, setIsPageLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -83,8 +87,9 @@ export function ProductClient() {
     },
   });
 
-  // تابع واکشی داده‌ها (Refetch)
+  // --- این تابع حالا فقط برای *رفرش* کردن داده‌ها استفاده می‌شود ---
   const fetchData = useCallback(async () => {
+    // فقط اگر در حال ارسال فرم نیستیم، لودینگ رفرش را نشان بده
     if (!isSubmitting) setIsPageLoading(true);
     try {
       const [productsRes, categoriesRes] = await Promise.all([
@@ -106,24 +111,21 @@ export function ProductClient() {
     }
   }, [isSubmitting]);
 
-  // واکشی اولیه در زمان لود شدن کامپوننت
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  // --- ۴. این useEffect (واکشی اولیه) دیگر لازم نیست و حذف می‌شود ---
+  // useEffect(() => {
+  //   fetchData();
+  // }, [fetchData]);
 
   // تابع refetch عمومی
   const refreshData = () => {
     fetchData();
   };
 
-  // گروه‌بندی محصولات برای نمایش (محاسبه بهینه)
+  // (groupedProducts useMemo بدون تغییر)
   const groupedProducts = useMemo(() => {
-    // ابتدا دسته‌بندی‌ها را بر اساس order مرتب می‌کنیم
     const sortedCategories = [...categories].sort((a, b) => a.order - b.order);
-
     return sortedCategories.map((category) => ({
       ...category,
-      // سپس محصولات هر دسته‌بندی را فیلتر و مرتب می‌کنیم
       products: products
         .filter((p) => p.categoryId === category.id)
         .sort((a, b) => a.order - b.order),
@@ -137,7 +139,7 @@ export function ProductClient() {
       name: "",
       description: "",
       price: 0,
-      categoryId: categories[0]?.id ? String(categories[0].id) : "", // انتخاب اولین دسته‌بندی به عنوان پیش‌فرض
+      categoryId: categories[0]?.id ? String(categories[0].id) : "",
       imageUrl: "",
     });
     setErrorMessage("");
@@ -163,6 +165,7 @@ export function ProductClient() {
     setIsDeleteOpen(true);
   };
 
+  // (تابع uploadFile - بدون تغییر)
   const uploadFile = async (file) => {
     const formData = new FormData();
     formData.append("file", file);
@@ -180,30 +183,27 @@ export function ProductClient() {
       return res.publicUrl;
     } catch (err) {
       console.error(err);
-      throw err; // ارور را پرتاب می‌کنیم تا onSubmit آن را بگیرد
+      throw err;
     }
   };
 
+  // --- توابع عملیاتی (بدون تغییر، چون از قبل refreshData را صدا می‌زدند) ---
   const onSubmit = async (values) => {
     setIsSubmitting(true);
     setErrorMessage("");
 
     try {
-      let finalImageUrl = "/images/icon.png"; // مقدار پیش‌فرض اگر عکسی نباشد
+      let finalImageUrl = "/images/icon.png";
 
-      // بررسی وضعیت عکس
       if (values.imageUrl instanceof File) {
-        // حالت ۱: کاربر فایل جدیدی انتخاب کرده -> آن را آپلود کن
         finalImageUrl = await uploadFile(values.imageUrl);
       } else if (typeof values.imageUrl === "string" && values.imageUrl) {
-        // حالت ۲: کاربر فایل قبلی را تغییر نداده -> از همان URL رشته‌ای استفاده کن
         finalImageUrl = values.imageUrl;
       }
-      // حالت ۳: کاربر عکس را حذف کرده (values.imageUrl برابر "" است) -> از همان مقدار پیش‌فرض استفاده می‌شود
 
       const productData = {
         ...values,
-        imageUrl: finalImageUrl, // URL نهایی را در دیتا قرار بده
+        imageUrl: finalImageUrl,
       };
 
       const url = selectedProduct
@@ -219,19 +219,17 @@ export function ProductClient() {
 
       if (res.ok) {
         setIsFormOpen(false);
-        refreshData();
+        refreshData(); // فراخوانی رفرش
       } else {
         const data = await res.json();
         setErrorMessage(data.message || "خطایی رخ داد");
       }
     } catch (error) {
-      // این خطا ممکن است از تابع uploadFile یا از fetch اصلی بیاید
       setErrorMessage(error.message || "خطا در ارتباط با سرور");
     }
     setIsSubmitting(false);
   };
 
-  // عملیات حذف
   const onDelete = async () => {
     if (!selectedProduct) return;
     setIsSubmitting(true);
@@ -243,7 +241,7 @@ export function ProductClient() {
       });
       if (res.ok) {
         setIsDeleteOpen(false);
-        refreshData(); // <-- Refetch!
+        refreshData(); // فراخوانی رفرش
       } else {
         const data = await res.json();
         setErrorMessage(data.message || "خطایی رخ داد");
@@ -254,7 +252,6 @@ export function ProductClient() {
     setIsSubmitting(false);
   };
 
-  // عملیات تغییر ترتیب
   const handleReorder = async (productId, direction) => {
     setIsSubmitting(true);
     try {
@@ -264,7 +261,7 @@ export function ProductClient() {
         body: JSON.stringify({ direction: direction }),
       });
       if (res.ok) {
-        refreshData(); // <-- Refetch!
+        refreshData(); // فراخوانی رفرش
       } else {
         const data = await res.json();
         setErrorMessage(data.message || "خطا در جابجایی");
@@ -275,17 +272,22 @@ export function ProductClient() {
     setIsSubmitting(false);
   };
 
-  // تابع کمکی قیمت
+  // (تابع formatPrice - بدون تغییر)
   const formatPrice = (price) => {
-    return new Intl.NumberFormat("fa-IR").format(price);
+    // اطمینان از اینکه ورودی عدد است (برای مقادیر Decimal از Prisma)
+    const numericPrice =
+      typeof price === "object" ? price.toNumber() : Number(price);
+    return new Intl.NumberFormat("fa-IR").format(numericPrice);
   };
 
+  // --- JSX (کاملاً بدون تغییر) ---
+  // (لودینگ isPageLoading حالا فقط موقع رفرش نمایش داده می‌شود)
   return (
     <>
       <div className="flex justify-end mb-4">
         <Button
           onClick={handleOpenCreate}
-          disabled={categories.length === 0} // دکمه غیرفعال باشد اگر دسته‌بندی وجود ندارد
+          disabled={categories.length === 0}
           className="bg-brand-primary hover:bg-brand-primary/90"
         >
           <Plus className="ml-2 h-4 w-4" />
@@ -306,7 +308,6 @@ export function ProductClient() {
 
       <div className="rounded-md border">
         {isPageLoading ? (
-          // لودینگ زیبای شما
           <div className="flex items-center justify-center min-h-[200px]">
             <Loader2 className="h-8 w-8 animate-spin text-brand-primary" />
             <p className="mr-2">در حال بارگیری داده‌ها...</p>
@@ -322,7 +323,6 @@ export function ProductClient() {
               </TableRow>
             </TableHeader>
 
-            {/* رندر گروهی محصولات */}
             <TableBody>
               {groupedProducts.length === 0 ? (
                 <TableRow>
@@ -336,7 +336,6 @@ export function ProductClient() {
               ) : (
                 groupedProducts.map((category) => (
                   <React.Fragment key={category.id}>
-                    {/* ردیف هدر دسته‌بندی */}
                     <TableRow className="bg-muted/50 hover:bg-muted/50">
                       <TableCell
                         colSpan={4}
@@ -356,7 +355,6 @@ export function ProductClient() {
                         </TableCell>
                       </TableRow>
                     ) : (
-                      // ردیف محصولات
                       category.products.map((product, index) => (
                         <TableRow key={product.id}>
                           <TableCell>
@@ -373,7 +371,6 @@ export function ProductClient() {
                           </TableCell>
                           <TableCell>{formatPrice(product.price)}</TableCell>
                           <TableCell className="flex gap-2">
-                            {/* دکمه‌های ترتیب */}
                             <Button
                               variant="outline"
                               size="icon"
@@ -393,7 +390,6 @@ export function ProductClient() {
                             >
                               <ArrowDown className="h-4 w-4" />
                             </Button>
-                            {/* دکمه‌های قبلی */}
                             <Button
                               variant="outline"
                               size="icon"
@@ -453,7 +449,7 @@ export function ProductClient() {
                     <FormLabel>دسته‌بندی</FormLabel>
                     <Select
                       onValueChange={field.onChange}
-                      value={field.value} // از value استفاده کنید تا با form.reset هماهنگ باشد
+                      value={field.value}
                       dir="rtl"
                     >
                       <FormControl>
@@ -514,8 +510,8 @@ export function ProductClient() {
                     <FormControl>
                       <ImageUploader
                         value={field.value}
-                        onFileChange={field.onChange} // ارسال آبجکت File به فرم
-                        onRemove={field.onChange} // ارسال "" به فرم
+                        onFileChange={field.onChange}
+                        onRemove={field.onChange}
                       />
                     </FormControl>
                     <FormMessage />

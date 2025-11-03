@@ -62,6 +62,24 @@ services:
       echo '✅ MinIO bucket and CORS configured successfully!';
       "
 
+  backup:
+    build:
+      context: .
+      dockerfile: Dockerfile.backup
+    volumes:
+      - ./backups:/backups
+    environment:
+      POSTGRES_USER: "user"
+      POSTGRES_PASSWORD: "password"
+      POSTGRES_DB: "mydb"
+      MINIO_ROOT_USER: "admin123"
+      MINIO_ROOT_PASSWORD: "strongpassword123"
+      S3_BUCKET_NAME: "ff-menu-images"
+    depends_on:
+      - db
+      - minio-setup
+    restart: unless-stopped
+
 volumes:
   pgdata: {}
   miniodata: {}

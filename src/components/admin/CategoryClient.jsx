@@ -22,7 +22,6 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-  DialogTrigger,
   DialogClose,
 } from "@/components/ui/dialog";
 import {
@@ -36,16 +35,20 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-// اسکیما اعتبارسنجی برای فرم
+// اسکیما اعتبارسنجی برای فرم (بدون تغییر)
 const formSchema = z.object({
   name: z.string().min(1, { message: "نام دسته‌بندی الزامی است." }),
 });
 
-export function CategoryClient() {
+// --- ۱. دریافت initialData به عنوان prop ---
+export function CategoryClient({ initialData }) {
   const router = useRouter();
 
-  const [categories, setCategories] = useState([]);
-  const [isPageLoading, setIsPageLoading] = useState(true);
+  // --- ۲. استفاده از initialData برای مقداردهی اولیه state ---
+  const [categories, setCategories] = useState(initialData || []);
+
+  // --- ۳. لودینگ اولیه حالا false است، چون داده‌ها آماده‌اند ---
+  const [isPageLoading, setIsPageLoading] = useState(false);
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -59,7 +62,9 @@ export function CategoryClient() {
     defaultValues: { name: "" },
   });
 
+  // --- این تابع حالا فقط برای *رفرش* کردن داده‌ها استفاده می‌شود ---
   const fetchCategories = useCallback(async () => {
+    // فقط اگر در حال ارسال فرم نیستیم، لودینگ رفرش را نشان بده
     if (!isSubmitting) setIsPageLoading(true);
 
     try {
@@ -72,17 +77,13 @@ export function CategoryClient() {
     } finally {
       setIsPageLoading(false);
     }
-  }, [isSubmitting]);
-
-  useEffect(() => {
-    fetchCategories();
-  }, [fetchCategories]);
+  }, [isSubmitting]); // وابستگی به fetchCategories حذف شد
 
   const refreshData = () => {
     fetchCategories();
   };
 
-  // باز کردن فرم برای "ایجاد"
+  // --- توابع Handlers (بدون تغییر) ---
   const handleOpenCreate = () => {
     setSelectedCategory(null);
     form.reset({ name: "" });
@@ -90,7 +91,6 @@ export function CategoryClient() {
     setIsFormOpen(true);
   };
 
-  // باز کردن فرم برای "ویرایش"
   const handleOpenEdit = (category) => {
     setSelectedCategory(category);
     form.reset({ name: category.name });
@@ -98,20 +98,19 @@ export function CategoryClient() {
     setIsFormOpen(true);
   };
 
-  // باز کردن دیالوگ "حذف"
   const handleOpenDelete = (category) => {
     setSelectedCategory(category);
     setErrorMessage("");
     setIsDeleteOpen(true);
   };
 
-  // تابع ارسال فرم (ایجاد یا ویرایش)
+  // --- توابع عملیاتی (بدون تغییر، چون از قبل refreshData را صدا می‌زدند) ---
   const onSubmit = async (values) => {
     setIsSubmitting(true);
     setErrorMessage("");
     const url = selectedCategory
-      ? `/api/category/${selectedCategory.id}` // ویرایش
-      : "/api/category"; // ایجاد
+      ? `/api/category/${selectedCategory.id}`
+      : "/api/category";
     const method = selectedCategory ? "PUT" : "POST";
 
     try {
@@ -123,7 +122,7 @@ export function CategoryClient() {
 
       if (res.ok) {
         setIsFormOpen(false);
-        refreshData();
+        refreshData(); // فراخوانی رفرش
       } else {
         const data = await res.json();
         setErrorMessage(data.message || "خطایی رخ داد");
@@ -134,7 +133,6 @@ export function CategoryClient() {
     setIsSubmitting(false);
   };
 
-  // تابع حذف
   const onDelete = async () => {
     if (!selectedCategory) return;
     setIsSubmitting(true);
@@ -147,7 +145,7 @@ export function CategoryClient() {
 
       if (res.ok) {
         setIsDeleteOpen(false);
-        refreshData(); // رفرش صفحه
+        refreshData(); // فراخوانی رفرش
       } else {
         const data = await res.json();
         setErrorMessage(data.message || "خطایی رخ داد");
@@ -159,7 +157,7 @@ export function CategoryClient() {
   };
 
   const handleReorder = async (categoryId, direction) => {
-    setIsSubmitting(true); // از isLoading موجود استفاده می‌کنیم
+    setIsSubmitting(true);
     try {
       const res = await fetch(`/api/category/${categoryId}/reorder`, {
         method: "PATCH",
@@ -168,7 +166,7 @@ export function CategoryClient() {
       });
 
       if (res.ok) {
-        refreshData(); // لیست را رفرش می‌کنیم تا ترتیب جدید نمایش داده شود
+        refreshData(); // فراخوانی رفرش
       } else {
         const data = await res.json();
         setErrorMessage(data.message || "خطا در جابجایی");
@@ -179,6 +177,8 @@ export function CategoryClient() {
     setIsSubmitting(false);
   };
 
+  // --- JSX (کاملاً بدون تغییر) ---
+  // (لودینگ isPageLoading حالا فقط موقع رفرش نمایش داده می‌شود)
   return (
     <>
       <div className="flex justify-end mb-4">
@@ -191,10 +191,8 @@ export function CategoryClient() {
         </Button>
       </div>
 
-      {/* --- جدول نمایش --- */}
       <div className="rounded-md border">
         {isPageLoading ? (
-          // --- این لودینگ زیبای شماست ---
           <div className="flex items-center justify-center min-h-[200px]">
             <Loader2 className="h-8 w-8 animate-spin text-brand-primary" />
             <p className="mr-2">در حال بارگیری داده‌ها...</p>
@@ -227,7 +225,7 @@ export function CategoryClient() {
                         variant="outline"
                         size="icon"
                         onClick={() => handleReorder(category.id, "up")}
-                        disabled={isSubmitting || index === 0} // دکمه بالا برای آیتم اول غیرفعال است
+                        disabled={isSubmitting || index === 0}
                       >
                         <ArrowUp className="h-4 w-4" />
                       </Button>
@@ -237,7 +235,7 @@ export function CategoryClient() {
                         onClick={() => handleReorder(category.id, "down")}
                         disabled={
                           isSubmitting || index === categories.length - 1
-                        } // دکمه پایین برای آیتم آخر غیرفعال است
+                        }
                       >
                         <ArrowDown className="h-4 w-4" />
                       </Button>

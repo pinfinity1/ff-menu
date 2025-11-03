@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 
+export const dynamic = "force-dynamic";
+
 async function swapOrder(productA, productB) {
   return prisma.$transaction([
     prisma.product.update({

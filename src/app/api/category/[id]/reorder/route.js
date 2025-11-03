@@ -2,6 +2,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 
+export const dynamic = "force-dynamic";
+
 // تابع کمکی برای جابجایی
 async function swapOrder(categoryA, categoryB) {
   // از transaction استفاده می‌کنیم تا مطمئن شویم هر دو آپدیت با هم انجام می‌شوند

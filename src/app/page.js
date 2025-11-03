@@ -4,20 +4,23 @@ import { MenuItems } from "@/components/MenuItem/MenuItems";
 
 async function getMenuData() {
   try {
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
-
-    const response = await fetch(`${baseUrl}/api/category?eager=true`, {
-      cache: "no-store",
+    // ۳. عدم استفاده از fetch، فراخوانی مستقیم Prisma
+    const data = await prisma.category.findMany({
+      include: {
+        products: {
+          orderBy: {
+            order: "asc", // محصولات را هم مرتب می‌کنیم
+          },
+        },
+      },
+      orderBy: { order: "asc" },
     });
-    if (!response.ok)
-      throw new Error(`Failed to fetch: ${response.statusText}`);
-    return response.json();
+    return data;
   } catch (error) {
-    console.log("Error fetching data from internal API:", error);
+    console.log("Error fetching data directly from DB:", error);
     return [];
   }
 }
-
 export default async function Home() {
   const categoryAndSubsets = await getMenuData();
 

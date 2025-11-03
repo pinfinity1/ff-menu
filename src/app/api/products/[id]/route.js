@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { deleteFileFromS3 } from "@/lib/s3";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(request, { params }) {
   try {
     const id = parseInt(params.id);
@@ -89,7 +91,6 @@ export async function PUT(request, { params }) {
 // تابع DELETE (حذف) آپدیت می‌شود
 export async function DELETE(request, { params }) {
   try {
-    await request.text(); // (مصرف request برای سازگاری)
     const id = parseInt(params.id);
 
     // ۱. محصول را از دیتابیس می‌خوانیم تا URL عکس را داشته باشیم

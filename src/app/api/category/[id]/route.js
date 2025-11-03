@@ -1,6 +1,7 @@
-// file: src/app/api/category/[id]/route.js
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+
+export const dynamic = "force-dynamic";
 
 // (تابع GET بدون تغییر)
 export async function GET(request, { params }) {
@@ -64,11 +65,6 @@ export async function PUT(request, { params }) {
 // حذف یک دسته‌بندی
 export async function DELETE(request, { params }) {
   try {
-    // --- راه‌حل: request را "مصرف" می‌کنیم ---
-    // این به Next.js می‌فهماند که این یک روت داینامیک است
-    await request.text(); // (یک مصرف بی‌خطر برای یک درخواست بدون بدنه)
-    // -------------------------------------
-
     const id = parseInt(params.id);
 
     await prisma.category.delete({

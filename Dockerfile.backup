@@ -1,0 +1,20 @@
+# از یک ایمیج سبک استفاده می‌کنیم
+FROM alpine:latest
+
+# ۱. نصب ابزارهای مورد نیاز
+# postgresql-client: برای pg_dump
+# minio-client: برای mc
+# dcron: برای اجرای زمان‌بندی شده (Cron)
+RUN apk add --no-cache postgresql-client minio-client dcron
+
+# ۲. تنظیم Cron Job
+# این دستور می‌گوید روز اول (1) هر ماه ساعت ۵:۰۰ بامداد اجرا کن
+RUN echo "0 5 1 * * /backup.sh >> /var/log/cron.log 2>&1" | crontab -
+
+# ۳. کپی کردن اسکریپت بکاپ به داخل ایمیج
+COPY backup.sh /backup.sh
+RUN chmod +x /backup.sh
+
+# ۴. ایجاد فایل لاگ و اجرای Cron
+RUN touch /var/log/cron.log
+CMD crond -f -l 8 && tail -f /var/log/cron.log
