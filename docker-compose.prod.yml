@@ -1,19 +1,22 @@
 services:
   app:
-    # دستور کامل بیلد و اجرا
-    command: sh -c "npx prisma db push && npx prisma generate && npm run prisma:seed && npm run build && npm start"
+    # 👇 ایمیج را از رجیستری گیت‌هاب تو می‌خواند
+    image: ghcr.io/pinfinity1/ff-menu:latest
+
+    # 👇 دستور اجرا ساده شد: فقط آپدیت دیتابیس و استارت
+    # (دیگر جنریت و بیلد و سید اینجا انجام نمی‌شود)
+    command: sh -c "npx prisma db push && npm start"
 
     ports:
       - "3000:3000"
 
-    # restart: always  <-- فعلاً کامنت کنید تا خطا را ببینیم
+    restart: always
 
     environment:
-      # برای تست لوکال true، برای سرور false
-      NEXT_PUBLIC_IMAGE_UNOPTIMIZED: "true"
       NODE_ENV: production
       HOSTNAME: "0.0.0.0"
       PORT: "3000"
+      # بقیه متغیرهای محیطی از فایل .env خوانده می‌شوند
 
   db:
     restart: always

@@ -4,9 +4,42 @@ on:
     push:
         branches: ["main"]
 
+env:
+    # نام امیج داکر (فرمت: ghcr.io/نام-کاربری/نام-ریپو)
+    IMAGE_NAME: ghcr.io/pinfinity1/ff-menu
+
 jobs:
-    deploy:
+    # 🏗️ مرحله ۱: ساخت ایمیج در گیت‌هاب (آشپزخانه)
+    build-and-push:
         runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            packages: write
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Log in to the Container registry
+              uses: docker/login-action@v3
+              with:
+                  registry: ghcr.io
+                  username: ${{ github.actor }}
+                  password: ${{ secrets.GITHUB_TOKEN }}
+
+            - name: Build and push Docker image
+              uses: docker/build-push-action@v5
+              with:
+                  context: .
+                  file: ./Dockerfile
+                  push: true
+                  tags: ${{ env.IMAGE_NAME }}:latest
+
+    # 🚀 مرحله ۲: ارسال به سرور (رستوران)
+    deploy:
+        needs: build-and-push
+        runs-on: ubuntu-latest
+
         steps:
             - name: Execute remote commands via SSH
               uses: appleboy/ssh-action@master
@@ -16,17 +49,26 @@ jobs:
                   key: ${{ secrets.SSH_PRIVATE_KEY }}
                   port: 22
                   script: |
-                      cd /root/ff-menu || exit
-                      echo "⬇️ Pulling latest changes..."
+                      # ۱. رفتن به مسیر دقیق پروژه در سرور
+                      cd /var/www/ff-menu || exit
+
+                      echo "✅ Successfully entered directory: $(pwd)"
+
+                      # ۲. دریافت فایل‌های جدید (مثل docker-compose.prod.yml)
+                      echo "⬇️ Pulling git changes..."
                       git pull origin main
 
-                      echo "🛑 Stopping containers..."
-                      # باید با همان دستوری که اجرا شده متوقف شود
-                      docker-compose -f docker-compose.yml -f docker-compose.prod.yml down
+                      # ۳. لاگین به داکر با کلیدی که ساختی (CR_PAT)
+                      echo "${{ secrets.CR_PAT }}" | docker login ghcr.io -u pinfinity1 --password-stdin
 
-                      echo "🚀 Building and Starting Production..."
-                      # اجرای دستور ترکیبی
-                      docker-compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d
+                      # ۴. دانلود ایمیج جدیدی که مرحله قبل ساخته شد
+                      echo "⬇️ Pulling Docker Image..."
+                      docker-compose -f docker-compose.yml -f docker-compose.prod.yml pull app
 
-                      echo "🧹 Cleaning up..."
+                      # ۵. بالا آوردن کانتینرها با ایمیج جدید
+                      echo "🚀 Restarting App..."
+                      docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+                      # ۶. پاک کردن فایل‌های اضافی برای پر نشدن حافظه سرور
+                      echo "🧹 Cleanup..."
                       docker image prune -f
