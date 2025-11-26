@@ -1,4 +1,3 @@
-// import ScrollToTop from "@/components/ScrollToTop";
 import "./globals.css";
 
 export const metadata = {
@@ -9,8 +8,7 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="fa" dir="rtl" suppressHydrationWarning>
-      <body className={`antialiased`}>
-        {/* <ScrollToTop /> */}
+      <body className={`antialiased bg-gray-50 text-gray-900 min-h-screen`}>
         {children}
       </body>
     </html>

@@ -6,11 +6,9 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useState } from "react";
-
 import Logo from "@/public/images/icon.png";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Form,
   FormControl,
@@ -49,7 +47,8 @@ export default function AdminLoginPage() {
       });
 
       if (response.ok) {
-        router.push("/admin/dashboard");
+        // استفاده از window.location برای رفرش کامل و دریافت سشن جدید
+        window.location.href = "/admin/dashboard";
       } else {
         const data = await response.json();
         setErrorMessage(data.message || "خطایی رخ داد.");
@@ -61,70 +60,90 @@ export default function AdminLoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-gray-100 sm:p-4">
-      <div className="w-full sm:max-w-sm rounded-lg sm:bg-white p-6 sm:shadow-md md:p-8">
-        <div className="mb-6 flex flex-col items-center">
-          <Image src={Logo} alt="لوگو گرین فست فود" width={80} height={80} />
-          <h1 className="mt-4 text-2xl font-bold text-brand-primary-dark">
-            ورود به پنل مدیریت
-          </h1>
+    // پس‌زمینه پترن‌دار مشابه سایت اصلی
+    <div
+      className="flex min-h-screen items-center justify-center bg-gray-50 font-picoopic"
+      style={{
+        backgroundImage: "radial-gradient(#e5e7eb 1px, transparent 1px)",
+        backgroundSize: "24px 24px",
+      }}
+    >
+      <div className="w-full max-w-md p-6">
+        <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/50 p-8">
+          {/* لوگو و عنوان */}
+          <div className="flex flex-col items-center mb-8">
+            <div className="w-20 h-20 relative mb-4 rounded-full overflow-hidden">
+              <Image src={Logo} alt="لوگو" fill className="object-cover" />
+            </div>
+            <h1 className="text-2xl font-bold text-gray-800">
+              ورود به پنل مدیریت
+            </h1>
+            <p className="text-sm text-gray-500 mt-2">
+              لطفا نام کاربری و رمز عبور خود را وارد کنید
+            </p>
+          </div>
+
+          {/* فرم ورود */}
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <FormField
+                control={form.control}
+                name="username"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>نام کاربری</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="admin"
+                        {...field}
+                        className="text-left ltr bg-white"
+                        dir="ltr"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>رمز عبور</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="password"
+                        placeholder="••••••••"
+                        {...field}
+                        className="text-left ltr bg-white"
+                        dir="ltr"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {errorMessage && (
+                <div className="bg-red-50 text-red-600 text-sm p-3 rounded-md border border-red-100 text-center">
+                  {errorMessage}
+                </div>
+              )}
+
+              <Button
+                type="submit"
+                disabled={isLoading}
+                className="w-full h-11 text-base bg-brand-primary hover:bg-brand-primary-dark transition-colors shadow-md shadow-brand-primary/20"
+              >
+                {isLoading ? "در حال بررسی..." : "ورود به سیستم"}
+              </Button>
+            </form>
+          </Form>
         </div>
 
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="username"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>نام کاربری</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="admin"
-                      {...field}
-                      className="text-left"
-                      dir="ltr"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="password"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>رمز عبور</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="password"
-                      placeholder="••••••••"
-                      {...field}
-                      className="text-left"
-                      dir="ltr"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {errorMessage && (
-              <p className="text-sm font-medium text-destructive">
-                {errorMessage}
-              </p>
-            )}
-
-            <Button
-              type="submit"
-              disabled={isLoading}
-              className="w-full text-white bg-brand-primary-dark hover:bg-brand-primary-dark/90 cursor-po"
-            >
-              {isLoading ? "در حال ورود..." : "ورود"}
-            </Button>
-          </form>
-        </Form>
+        <p className="text-center text-gray-400 text-xs mt-6">
+          © ۲۰۲۴ گرین فست‌فود. تمامی حقوق محفوظ است.
+        </p>
       </div>
     </div>
   );

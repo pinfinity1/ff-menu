@@ -7,24 +7,45 @@ export const HeaderItems = ({ categoryDetail }) => {
 
   const handleContext = () => {
     setCategory(categoryDetail);
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth",
-    });
+
+    // پیدا کردن المنت شروع منو
+    const menuStart = document.getElementById("menu-start");
+
+    if (menuStart) {
+      menuStart.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    } else {
+      // فال‌بک (اگر المنت پیدا نشد به بالای صفحه برو)
+      window.scrollTo({
+        top: 0,
+        behavior: "smooth",
+      });
+    }
   };
+
+  // تشخیص اینکه آیا این آیتم فعال است یا نه
+  const isActive = category?.id === id;
 
   return (
     <button
       onClick={handleContext}
-      className={`whitespace-nowrap flex flex-col justify-center items-center px-4 py-3 rounded cursor-pointer transition-all duration-300
+      className={`
+        relative whitespace-nowrap px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 ease-out
         ${
-          category?.id !== id
-            ? "bg-brand-primary-dark text-white"
-            : "bg-white text-brand-primary-dark"
+          isActive
+            ? "bg-brand-primary-dark text-white shadow-lg shadow-brand-primary/30 scale-105"
+            : "bg-transparent text-gray-600 hover:bg-black/5 hover:text-black"
         }
-        `}
+      `}
     >
-      <p>{name}</p>
+      {name}
+
+      {/* یک نقطه کوچک زیر آیتم فعال برای زیبایی بیشتر (اختیاری) */}
+      {isActive && (
+        <span className="absolute bottom-0.5 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-white rounded-full opacity-50"></span>
+      )}
     </button>
   );
 };

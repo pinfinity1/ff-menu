@@ -18,9 +18,9 @@ async function getProductsData() {
       },
       orderBy: { order: "asc" },
     });
-    // فرمت‌بندی داده‌ها در سرور
     return products.map((product) => ({
       ...product,
+      price: Number(product.price),
       categoryName: product.category.name,
     }));
   } catch (error) {

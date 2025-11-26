@@ -1,0 +1,39 @@
+name: Deploy to Production
+
+# این اکشن فقط وقتی اجرا می‌شود که روی شاخه main پوش (Push) کنید
+on:
+    push:
+        branches: ["main"]
+
+jobs:
+    deploy:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Execute remote commands via SSH
+              uses: appleboy/ssh-action@master
+              with:
+                  host: ${{ secrets.HOST }}
+                  username: ${{ secrets.USERNAME }}
+                  key: ${{ secrets.SSH_PRIVATE_KEY }}
+                  port: 22
+                  script: |
+                      # ۱. رفتن به پوشه پروژه (مسیر را مطابق سرور خود تنظیم کنید)
+                      cd /root/ff-menu || exit
+
+                      # ۲. دریافت آخرین تغییرات از گیت‌هاب
+                      echo "⬇️ Pulling latest changes..."
+                      git pull origin main
+
+                      # ۳. پایین آوردن کانتینرها برای جلوگیری از تداخل
+                      echo "🛑 Stopping containers..."
+                      docker-compose down
+
+                      # ۴. بیلد و اجرای مجدد
+                      # نکته مهم: متغیر محیطی را اینجا فالس می‌کنیم تا روی سرور بهینه‌سازی روشن شود
+                      echo "🚀 Building and Starting..."
+                      export NEXT_PUBLIC_IMAGE_UNOPTIMIZED=false
+                      docker-compose up --build -d
+
+                      # ۵. پاکسازی ایمیج‌های قدیمی (برای جلوگیری از پر شدن دیسک)
+                      echo "🧹 Cleaning up..."
+                      docker image prune -f

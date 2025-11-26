@@ -1,13 +1,11 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Plus, Edit, Trash2, ArrowUp, ArrowDown, Loader2 } from "lucide-react";
-
 import {
   Table,
   TableBody,
@@ -21,7 +19,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
+  DialogDescription, // <-- این خط اضافه شد
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
@@ -45,32 +43,30 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ImageUploader } from "./ImageUploader";
 
-// (formSchema بدون تغییر)
 const formSchema = z.object({
   name: z.string().min(1, { message: "نام محصول الزامی است." }),
   description: z.string().optional(),
   price: z.coerce.number().min(0, { message: "قیمت باید معتبر باشد." }),
   categoryId: z.string().min(1, { message: "انتخاب دسته‌بندی الزامی است." }),
   imageUrl: z.union([
-    z
-      .string()
-      .url({ message: "آدرس عکس معتبر نیست." })
-      .optional()
-      .or(z.literal("")),
+    z.string().optional().or(z.literal("")),
     z.instanceof(File).optional(),
   ]),
 });
 
-// --- ۱. دریافت initialProducts و initialCategories به عنوان props ---
+const normalizeNumber = (value) => {
+  if (!value) return "";
+  return value
+    .toString()
+    .replace(/[۰-۹]/g, (d) => "۰۱۲۳۴۵۶۷۸۹".indexOf(d))
+    .replace(/[٠-٩]/g, (d) => "٠١٢٣٤٥٦٧٨٩".indexOf(d));
+};
+
 export function ProductClient({ initialProducts, initialCategories }) {
-  // --- ۲. استفاده از props برای مقداردهی اولیه state ---
   const [products, setProducts] = useState(initialProducts || []);
   const [categories, setCategories] = useState(initialCategories || []);
-
-  // --- ۳. لودینگ اولیه صفحه حالا false است، چون داده‌ها آماده‌اند ---
   const [isPageLoading, setIsPageLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
@@ -87,9 +83,7 @@ export function ProductClient({ initialProducts, initialCategories }) {
     },
   });
 
-  // --- این تابع حالا فقط برای *رفرش* کردن داده‌ها استفاده می‌شود ---
   const fetchData = useCallback(async () => {
-    // فقط اگر در حال ارسال فرم نیستیم، لودینگ رفرش را نشان بده
     if (!isSubmitting) setIsPageLoading(true);
     try {
       const [productsRes, categoriesRes] = await Promise.all([
@@ -111,17 +105,10 @@ export function ProductClient({ initialProducts, initialCategories }) {
     }
   }, [isSubmitting]);
 
-  // --- ۴. این useEffect (واکشی اولیه) دیگر لازم نیست و حذف می‌شود ---
-  // useEffect(() => {
-  //   fetchData();
-  // }, [fetchData]);
-
-  // تابع refetch عمومی
   const refreshData = () => {
     fetchData();
   };
 
-  // (groupedProducts useMemo بدون تغییر)
   const groupedProducts = useMemo(() => {
     const sortedCategories = [...categories].sort((a, b) => a.order - b.order);
     return sortedCategories.map((category) => ({
@@ -132,13 +119,12 @@ export function ProductClient({ initialProducts, initialCategories }) {
     }));
   }, [categories, products]);
 
-  // (توابع Open/Close دیالوگ‌ها - بدون تغییر)
   const handleOpenCreate = () => {
     setSelectedProduct(null);
     form.reset({
       name: "",
       description: "",
-      price: 0,
+      price: "",
       categoryId: categories[0]?.id ? String(categories[0].id) : "",
       imageUrl: "",
     });
@@ -150,7 +136,7 @@ export function ProductClient({ initialProducts, initialCategories }) {
     setSelectedProduct(product);
     form.reset({
       name: product.name,
-      description: product.description,
+      description: product.description || "",
       price: product.price,
       categoryId: String(product.categoryId),
       imageUrl: product.imageUrl || "",
@@ -165,20 +151,15 @@ export function ProductClient({ initialProducts, initialCategories }) {
     setIsDeleteOpen(true);
   };
 
-  // (تابع uploadFile - بدون تغییر)
   const uploadFile = async (file) => {
     const formData = new FormData();
     formData.append("file", file);
-
     try {
       const response = await fetch("/api/upload", {
         method: "POST",
         body: formData,
       });
-
-      if (!response.ok) {
-        throw new Error("خطا در آپلود فایل به سرور");
-      }
+      if (!response.ok) throw new Error("خطا در آپلود فایل");
       const res = await response.json();
       return res.publicUrl;
     } catch (err) {
@@ -187,30 +168,39 @@ export function ProductClient({ initialProducts, initialCategories }) {
     }
   };
 
-  // --- توابع عملیاتی (بدون تغییر، چون از قبل refreshData را صدا می‌زدند) ---
   const onSubmit = async (values) => {
     setIsSubmitting(true);
     setErrorMessage("");
 
-    try {
-      let finalImageUrl = "/images/icon.png";
+    let uploadedImageUrl = null; // نگهداری آدرس عکس جدید برای رول‌بک احتمالی
 
+    try {
+      let finalImageUrl = selectedProduct?.imageUrl || "/images/icon.png";
+
+      // ۱. تلاش برای آپلود عکس
       if (values.imageUrl instanceof File) {
         finalImageUrl = await uploadFile(values.imageUrl);
-      } else if (typeof values.imageUrl === "string" && values.imageUrl) {
-        finalImageUrl = values.imageUrl;
+        uploadedImageUrl = finalImageUrl; // ذخیره آدرس برای روز مبادا
       }
 
       const productData = {
         ...values,
-        imageUrl: finalImageUrl,
+        imageUrl:
+          typeof values.imageUrl === "string" && values.imageUrl
+            ? values.imageUrl
+            : finalImageUrl,
       };
+
+      if (values.imageUrl instanceof File) {
+        productData.imageUrl = finalImageUrl;
+      }
 
       const url = selectedProduct
         ? `/api/products/${selectedProduct.id}`
         : "/api/products";
       const method = selectedProduct ? "PUT" : "POST";
 
+      // ۲. تلاش برای ذخیره در دیتابیس
       const res = await fetch(url, {
         method: method,
         headers: { "Content-Type": "application/json" },
@@ -218,13 +208,32 @@ export function ProductClient({ initialProducts, initialCategories }) {
       });
 
       if (res.ok) {
+        // موفقیت!
         setIsFormOpen(false);
-        refreshData(); // فراخوانی رفرش
+        refreshData();
       } else {
+        // ۳. شکست در دیتابیس -> اجرای رول‌بک (حذف عکس آپلود شده)
+        if (uploadedImageUrl) {
+          console.log("Rolling back image upload...");
+          await fetch("/api/upload", {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ url: uploadedImageUrl }),
+          });
+        }
+
         const data = await res.json();
         setErrorMessage(data.message || "خطایی رخ داد");
       }
     } catch (error) {
+      // خطای غیرمنتظره -> اجرای رول‌بک
+      if (uploadedImageUrl) {
+        await fetch("/api/upload", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: uploadedImageUrl }),
+        });
+      }
       setErrorMessage(error.message || "خطا در ارتباط با سرور");
     }
     setIsSubmitting(false);
@@ -234,14 +243,13 @@ export function ProductClient({ initialProducts, initialCategories }) {
     if (!selectedProduct) return;
     setIsSubmitting(true);
     setErrorMessage("");
-
     try {
       const res = await fetch(`/api/products/${selectedProduct.id}`, {
         method: "DELETE",
       });
       if (res.ok) {
         setIsDeleteOpen(false);
-        refreshData(); // فراخوانی رفرش
+        refreshData();
       } else {
         const data = await res.json();
         setErrorMessage(data.message || "خطایی رخ داد");
@@ -261,7 +269,7 @@ export function ProductClient({ initialProducts, initialCategories }) {
         body: JSON.stringify({ direction: direction }),
       });
       if (res.ok) {
-        refreshData(); // فراخوانی رفرش
+        refreshData();
       } else {
         const data = await res.json();
         setErrorMessage(data.message || "خطا در جابجایی");
@@ -272,54 +280,37 @@ export function ProductClient({ initialProducts, initialCategories }) {
     setIsSubmitting(false);
   };
 
-  // (تابع formatPrice - بدون تغییر)
   const formatPrice = (price) => {
-    // اطمینان از اینکه ورودی عدد است (برای مقادیر Decimal از Prisma)
-    const numericPrice =
-      typeof price === "object" ? price.toNumber() : Number(price);
-    return new Intl.NumberFormat("fa-IR").format(numericPrice);
+    return new Intl.NumberFormat("fa-IR").format(Number(price));
   };
 
-  // --- JSX (کاملاً بدون تغییر) ---
-  // (لودینگ isPageLoading حالا فقط موقع رفرش نمایش داده می‌شود)
   return (
     <>
-      <div className="flex justify-end mb-4">
+      <div className="flex justify-end mb-6">
         <Button
           onClick={handleOpenCreate}
           disabled={categories.length === 0}
-          className="bg-brand-primary hover:bg-brand-primary/90"
+          className="bg-brand-primary hover:bg-brand-primary-dark shadow-lg shadow-brand-primary/20 text-white h-11 px-6 transition-all"
         >
-          <Plus className="ml-2 h-4 w-4" />
-          افزودن محصول
+          <Plus className="ml-2 h-5 w-5" />
+          افزودن محصول جدید
         </Button>
-        {isPageLoading && categories.length === 0 && (
-          <p className="text-sm text-muted-foreground mr-2">
-            (در حال بارگیری دسته‌بندی‌ها...)
-          </p>
-        )}
-        {!isPageLoading && categories.length === 0 && (
-          <p className="text-sm text-destructive mr-2">
-            (برای افزودن محصول، ابتدا یک دسته‌بندی در صفحه دسته‌بندی‌ها ایجاد
-            کنید)
-          </p>
-        )}
       </div>
 
-      <div className="rounded-md border">
+      <div className="rounded-xl border border-gray-100 overflow-hidden bg-white shadow-sm">
         {isPageLoading ? (
-          <div className="flex items-center justify-center min-h-[200px]">
+          <div className="flex flex-col items-center justify-center min-h-[200px] gap-3 text-gray-500">
             <Loader2 className="h-8 w-8 animate-spin text-brand-primary" />
-            <p className="mr-2">در حال بارگیری داده‌ها...</p>
+            <p>در حال به‌روزرسانی لیست...</p>
           </div>
         ) : (
           <Table>
-            <TableHeader>
+            <TableHeader className="bg-gray-50/80">
               <TableRow>
-                <TableHead className="w-[80px]">عکس</TableHead>
-                <TableHead>نام محصول</TableHead>
-                <TableHead>قیمت (تومان)</TableHead>
-                <TableHead className="w-[180px]">عملیات</TableHead>
+                <TableHead className="w-[80px] text-right">عکس</TableHead>
+                <TableHead className="text-right">نام محصول</TableHead>
+                <TableHead className="text-right">قیمت</TableHead>
+                <TableHead className="text-left pl-6">عملیات</TableHead>
               </TableRow>
             </TableHeader>
 
@@ -328,20 +319,22 @@ export function ProductClient({ initialProducts, initialCategories }) {
                 <TableRow>
                   <TableCell
                     colSpan={4}
-                    className="text-center h-24 text-muted-foreground"
+                    className="text-center h-32 text-gray-500"
                   >
-                    هیچ دسته‌بندی یافت نشد.
+                    هیچ دسته‌بندی یا محصولی یافت نشد.
                   </TableCell>
                 </TableRow>
               ) : (
                 groupedProducts.map((category) => (
                   <React.Fragment key={category.id}>
-                    <TableRow className="bg-muted/50 hover:bg-muted/50">
-                      <TableCell
-                        colSpan={4}
-                        className="font-bold text-brand-primary-dark"
-                      >
-                        {category.name}
+                    <TableRow className="bg-gray-50 hover:bg-gray-50 border-t border-b-0">
+                      <TableCell colSpan={4} className="py-3">
+                        <div className="flex items-center gap-2 pr-2">
+                          <span className="w-2 h-2 rounded-full bg-brand-primary"></span>
+                          <span className="font-bold text-gray-800 text-lg">
+                            {category.name}
+                          </span>
+                        </div>
                       </TableCell>
                     </TableRow>
 
@@ -349,58 +342,73 @@ export function ProductClient({ initialProducts, initialCategories }) {
                       <TableRow>
                         <TableCell
                           colSpan={4}
-                          className="text-center text-muted-foreground py-4"
+                          className="text-center text-gray-400 py-4 text-sm border-b-0"
                         >
-                          هیچ محصولی در این دسته‌بندی نیست.
+                          (خالی)
                         </TableCell>
                       </TableRow>
                     ) : (
                       category.products.map((product, index) => (
-                        <TableRow key={product.id}>
+                        <TableRow
+                          key={product.id}
+                          className="hover:bg-gray-50/50 transition-colors border-b-gray-100"
+                        >
                           <TableCell>
-                            <Image
-                              src={product.imageUrl || "/images/icon.png"}
-                              alt={product.name}
-                              width={48}
-                              height={48}
-                              className="rounded-md object-cover"
-                            />
+                            <div className="relative w-12 h-12 rounded-lg overflow-hidden border border-gray-200">
+                              <Image
+                                src={product.imageUrl || "/images/icon.png"}
+                                alt={product.name}
+                                fill
+                                className="object-cover"
+                              />
+                            </div>
                           </TableCell>
-                          <TableCell className="font-medium">
+                          <TableCell className="font-medium text-gray-700 text-base">
                             {product.name}
                           </TableCell>
-                          <TableCell>{formatPrice(product.price)}</TableCell>
-                          <TableCell className="flex gap-2">
+                          <TableCell className="text-gray-600 font-mono text-base">
+                            {formatPrice(product.price)}
+                          </TableCell>
+                          <TableCell className="flex gap-2 justify-end items-center h-16">
+                            <div className="flex items-center bg-gray-100 rounded-lg p-1 ml-3">
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                className="h-7 w-7 hover:bg-white rounded-md"
+                                onClick={() => handleReorder(product.id, "up")}
+                                disabled={isSubmitting || index === 0}
+                              >
+                                <ArrowUp className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                className="h-7 w-7 hover:bg-white rounded-md"
+                                onClick={() =>
+                                  handleReorder(product.id, "down")
+                                }
+                                disabled={
+                                  isSubmitting ||
+                                  index === category.products.length - 1
+                                }
+                              >
+                                <ArrowDown className="h-4 w-4" />
+                              </Button>
+                            </div>
+
                             <Button
                               variant="outline"
                               size="icon"
-                              onClick={() => handleReorder(product.id, "up")}
-                              disabled={isSubmitting || index === 0}
-                            >
-                              <ArrowUp className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              onClick={() => handleReorder(product.id, "down")}
-                              disabled={
-                                isSubmitting ||
-                                index === category.products.length - 1
-                              }
-                            >
-                              <ArrowDown className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="icon"
+                              className="h-9 w-9 text-blue-600 border-blue-200 hover:bg-blue-50"
                               onClick={() => handleOpenEdit(product)}
                               disabled={isSubmitting}
                             >
                               <Edit className="h-4 w-4" />
                             </Button>
                             <Button
-                              variant="destructive"
+                              variant="outline"
                               size="icon"
+                              className="h-9 w-9 text-red-600 border-red-200 hover:bg-red-50"
                               onClick={() => handleOpenDelete(product)}
                               disabled={isSubmitting}
                             >
@@ -418,95 +426,126 @@ export function ProductClient({ initialProducts, initialCategories }) {
         )}
       </div>
 
-      {/* --- دیالوگ فرم (ایجاد/ویرایش محصول) --- */}
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto font-picoopic">
           <DialogHeader>
-            <DialogTitle>
+            <DialogTitle className="text-right pr-4 border-r-4 border-brand-primary rounded-sm text-xl">
               {selectedProduct ? "ویرایش محصول" : "ایجاد محصول جدید"}
             </DialogTitle>
           </DialogHeader>
+
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>نام محصول</FormLabel>
-                    <FormControl>
-                      <Input placeholder="مثلا: پیتزا مخصوص" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="categoryId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>دسته‌بندی</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      value={field.value}
-                      dir="rtl"
-                    >
+            <form
+              onSubmit={form.handleSubmit(onSubmit)}
+              className="space-y-5 mt-2"
+            >
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>نام محصول</FormLabel>
                       <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="یک دسته‌بندی را انتخاب کنید" />
-                        </SelectTrigger>
+                        <Input
+                          placeholder="مثلا: پیتزا مخصوص"
+                          {...field}
+                          className="bg-gray-50"
+                        />
                       </FormControl>
-                      <SelectContent>
-                        {categories.map((category) => (
-                          <SelectItem
-                            key={category.id}
-                            value={String(category.id)}
-                          >
-                            {category.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="categoryId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>دسته‌بندی</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        value={field.value}
+                        dir="rtl"
+                      >
+                        <FormControl>
+                          <SelectTrigger className="bg-gray-50">
+                            <SelectValue placeholder="انتخاب کنید" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {categories.map((cat) => (
+                            <SelectItem key={cat.id} value={String(cat.id)}>
+                              {cat.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
               <FormField
                 control={form.control}
                 name="price"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>قیمت (به تومان)</FormLabel>
+                    <FormLabel>قیمت (تومان)</FormLabel>
                     <FormControl>
-                      <Input type="number" placeholder="250000" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>توضیحات (محتویات)</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="مثلا: ژامبون، قارچ، پنیر..."
+                      <Input
+                        type="text" // تایپ را تکست می‌گذاریم تا بتوانیم ورودی فارسی را مدیریت کنیم
+                        inputMode="numeric" // در موبایل کیبورد عددی باز می‌کند
+                        placeholder="250000"
                         {...field}
+                        onChange={(e) => {
+                          // ۱. دریافت مقدار ورودی
+                          const rawValue = e.target.value;
+                          // ۲. تبدیل اعداد فارسی به انگلیسی
+                          const normalized = normalizeNumber(rawValue);
+                          // ۳. حذف هر کاراکتری که عدد نیست (مثلاً حروف الفبا)
+                          const numericValue = normalized.replace(
+                            /[^0-9]/g,
+                            ""
+                          );
+                          // ۴. آپدیت کردن استیت فرم
+                          field.onChange(numericValue);
+                        }}
+                        className="bg-gray-50 font-mono text-left"
+                        dir="ltr"
                       />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
+
+              <FormField
+                control={form.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>محتویات / توضیحات</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="مثلا: سوسیس، کالباس، قارچ، فلفل دلمه‌ای..."
+                        {...field}
+                        className="bg-gray-50 min-h-[80px]"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
               <FormField
                 control={form.control}
                 name="imageUrl"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>عکس محصول</FormLabel>
+                    <FormLabel>تصویر محصول</FormLabel>
                     <FormControl>
                       <ImageUploader
                         value={field.value}
@@ -518,16 +557,20 @@ export function ProductClient({ initialProducts, initialCategories }) {
                   </FormItem>
                 )}
               />
+
               {errorMessage && (
-                <p className="text-sm text-destructive">{errorMessage}</p>
+                <div className="text-sm text-red-600 bg-red-50 p-3 rounded border border-red-200 text-center">
+                  {errorMessage}
+                </div>
               )}
 
-              <DialogFooter>
+              <DialogFooter className="gap-2 sm:gap-0 pt-4 border-t mt-6">
                 <DialogClose asChild>
                   <Button
                     type="button"
                     variant="outline"
                     disabled={isSubmitting}
+                    className="h-11 px-6"
                   >
                     لغو
                   </Button>
@@ -535,12 +578,12 @@ export function ProductClient({ initialProducts, initialCategories }) {
                 <Button
                   type="submit"
                   disabled={isSubmitting}
-                  className="bg-brand-primary hover:bg-brand-primary/90"
+                  className="bg-brand-primary hover:bg-brand-primary-dark h-11 px-8"
                 >
                   {isSubmitting ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <Loader2 className="h-5 w-5 animate-spin" />
                   ) : (
-                    "ذخیره"
+                    "ذخیره تغییرات"
                   )}
                 </Button>
               </DialogFooter>
@@ -549,34 +592,50 @@ export function ProductClient({ initialProducts, initialCategories }) {
         </DialogContent>
       </Dialog>
 
-      {/* --- دیالوگ تایید حذف --- */}
       <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-[400px] font-picoopic">
           <DialogHeader>
-            <DialogTitle>آیا از حذف مطمئن هستید؟</DialogTitle>
-            <DialogDescription>
-              آیا می‌خواهید محصول "{selectedProduct?.name}" را حذف کنید؟
-              <br />
-              <span className="font-bold text-destructive">
-                توجه: این عمل غیرقابل بازگشت است.
+            <DialogTitle className="text-red-600 flex items-center gap-2">
+              <Trash2 className="h-5 w-5" />
+              حذف محصول
+            </DialogTitle>
+            <DialogDescription className="pt-3 leading-7 text-right">
+              آیا از حذف محصول
+              <span className="font-bold text-gray-900 mx-1 border-b border-gray-300">
+                "{selectedProduct?.name}"
               </span>
+              مطمئن هستید؟
+              <br />
+              این عملیات غیرقابل بازگشت است.
             </DialogDescription>
           </DialogHeader>
           {errorMessage && (
-            <p className="text-sm text-destructive">{errorMessage}</p>
+            <p className="text-sm text-red-600 bg-red-50 p-2 rounded mt-2">
+              {errorMessage}
+            </p>
           )}
-          <DialogFooter>
+          <DialogFooter className="gap-2 mt-4">
             <DialogClose asChild>
-              <Button type="button" variant="outline" disabled={isSubmitting}>
-                لغو
+              <Button
+                type="button"
+                variant="outline"
+                disabled={isSubmitting}
+                className="flex-1"
+              >
+                انصراف
               </Button>
             </DialogClose>
             <Button
               onClick={onDelete}
               disabled={isSubmitting}
               variant="destructive"
+              className="flex-1 bg-red-600 hover:bg-red-700"
             >
-              {isSubmitting ? "در حال حذف..." : "حذف کن"}
+              {isSubmitting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                "بله، حذف کن"
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

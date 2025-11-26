@@ -154,6 +154,13 @@ body {
   width: 100vw;
   height: 100%;
   font-family: "picoopic", sans-serif;
+
+  background-color: #f9fafb; /* معادل gray-50 */
+  background-image: radial-gradient(
+    #e5e7eb 1px,
+    transparent 1px
+  ); /* نقاط طوسی کمرنگ */
+  background-size: 24px 24px; /* فاصله نقاط */
 }
 
 ::-webkit-scrollbar {

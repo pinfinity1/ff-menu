@@ -14,10 +14,20 @@ export const Header = ({ categories }) => {
   }, [categories, setCategory]);
 
   return (
-    <div className="w-full sticky top-6 z-30 flex  items-center gap-3 px-3 py-4 mt-5 mb-8 rounded-md overflow-x-auto bg-brand-primary/20 backdrop-blur drop-shadow-md shadow-lg">
-      {categories?.map((category) => {
-        return <HeaderItems key={category.id} categoryDetail={category} />;
-      })}
+    <div className="sticky top-4 z-40 mx-auto w-full max-w-[98%] md:max-w-full my-4">
+      <div
+        className="
+        flex items-center gap-2 px-2 py-2 
+        overflow-x-auto no-scrollbar
+        bg-white/80 backdrop-blur-xl 
+        border border-gray-200 shadow-lg shadow-black/5
+        rounded-2xl
+      "
+      >
+        {categories?.map((category) => {
+          return <HeaderItems key={category.id} categoryDetail={category} />;
+        })}
+      </div>
     </div>
   );
 };

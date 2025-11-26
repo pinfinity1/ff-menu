@@ -11,36 +11,40 @@ import {
   SheetHeader,
   SheetTitle,
   SheetDescription,
-} from "@/components/ui/sheet"; //
+} from "@/components/ui/sheet";
 
 const NavLinks = () => (
-  <nav className="flex flex-col gap-4 p-4 text-sm font-medium">
+  <nav className="flex flex-col gap-2 p-4 text-sm font-medium">
+    <div className="flex items-center gap-3 px-2 mb-6 mt-2">
+      <Image
+        src={Logo}
+        alt="لوگو"
+        width={40}
+        height={40}
+        className="rounded-full shadow-sm"
+      />
+      <span className="text-lg font-bold text-gray-800">پنل مدیریت</span>
+    </div>
+
     <Link
       href="/admin/dashboard"
-      className="flex items-center gap-3 rounded-lg px-3 py-2 text-brand-primary transition-all"
+      className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-gray-600 hover:text-brand-primary hover:bg-brand-primary/5 transition-all"
     >
-      <Image src={Logo} alt="لوگو" width={32} height={32} />
-      <span className="text-lg font-bold">پنل مدیریت</span>
-    </Link>
-    <Link
-      href="/admin/dashboard"
-      className="flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-brand-primary"
-    >
-      <Home className="h-4 w-4" />
+      <Home className="h-5 w-5" />
       داشبورد
     </Link>
     <Link
       href="/admin/categories"
-      className="flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-brand-primary"
+      className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-gray-600 hover:text-brand-primary hover:bg-brand-primary/5 transition-all"
     >
-      <Folder className="h-4 w-4" />
+      <Folder className="h-5 w-5" />
       مدیریت دسته‌بندی‌ها
     </Link>
     <Link
       href="/admin/products"
-      className="flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-brand-primary"
+      className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-gray-600 hover:text-brand-primary hover:bg-brand-primary/5 transition-all"
     >
-      <Package className="h-4 w-4" />
+      <Package className="h-5 w-5" />
       مدیریت محصولات
     </Link>
   </nav>
@@ -48,48 +52,50 @@ const NavLinks = () => (
 
 export default function AdminLayout({ children }) {
   return (
-    <div className="light flex min-h-screen w-full flex-col">
-      <aside className="fixed inset-y-0 right-0 z-10 hidden w-60 flex-col border-l bg-secondary sm:flex">
+    <div className="flex min-h-screen w-full bg-gray-50 font-picoopic">
+      {/* سایدبار دسکتاپ */}
+      <aside className="hidden w-64 border-l bg-white shadow-sm sm:block fixed inset-y-0 right-0 z-20">
         <NavLinks />
+        <div className="absolute bottom-4 w-full px-4">
+          {/* اینجا می‌توان دکمه خروج را هم اضافه کرد */}
+        </div>
       </aside>
 
-      <div className="flex flex-col sm:pr-60">
-        <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-4 border-b bg-background px-4  sm:px-6">
+      <div className="flex flex-col w-full sm:pr-64">
+        <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-4 border-b bg-white/80 backdrop-blur px-4 sm:px-6 shadow-sm">
           <div className="sm:hidden">
             <Sheet>
               <SheetTrigger asChild>
-                <Button size="icon" variant="outline">
+                <Button size="icon" variant="ghost">
                   <Menu className="h-5 w-5" />
                   <span className="sr-only">باز کردن منو</span>
                 </Button>
               </SheetTrigger>
               <SheetContent
                 side="right"
-                className="w-full max-w-xs bg-secondary"
+                className="w-64 p-0 bg-white font-picoopic"
               >
-                <SheetHeader>
-                  <SheetTitle className="sr-only">منوی اصلی</SheetTitle>
-                  <SheetDescription className="sr-only">
-                    لینک‌های ناوبری پنل مدیریت
-                  </SheetDescription>
+                <SheetHeader className="sr-only">
+                  <SheetTitle>منو</SheetTitle>
+                  <SheetDescription>ناوبری</SheetDescription>
                 </SheetHeader>
                 <NavLinks />
               </SheetContent>
             </Sheet>
           </div>
 
-          <Link
-            href="/admin/dashboard"
-            className="flex items-center gap-3 rounded-lg px-3 py-2 text-brand-primary transition-all"
-          >
-            <Image src={Logo} alt="لوگو" width={32} height={32} />
-            <span className="text-lg font-bold">پنل مدیریت</span>
-          </Link>
+          {/* نمایش لوگو در موبایل */}
+          <div className="flex items-center gap-2 sm:hidden">
+            <span className="font-bold text-gray-700">گرین فست‌فود</span>
+          </div>
 
-          <LogoutButton />
+          <div className="mr-auto flex items-center gap-2">
+            <LogoutButton />
+          </div>
         </header>
 
-        <main className="flex-1 bg-background p-4 sm:p-6">{children}</main>
+        {/* محتوای اصلی صفحات */}
+        <main className="flex-1 p-4 sm:p-8">{children}</main>
       </div>
     </div>
   );

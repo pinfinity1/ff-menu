@@ -34,16 +34,18 @@ export default async function CategoriesPage() {
   const initialCategories = await getCategoriesData();
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">مدیریت دسته‌بندی‌ها</h1>
+        <h1 className="text-3xl font-bold text-gray-800">
+          مدیریت دسته‌بندی‌ها
+        </h1>
       </div>
 
-      <Card>
+      <Card className="border-none shadow-md bg-white/80 backdrop-blur-sm">
         <CardHeader>
           <CardTitle>لیست دسته‌بندی‌ها</CardTitle>
           <CardDescription>
-            دسته‌بندی‌های منوی خود را اینجا اضافه، ویرایش یا حذف کنید.
+            دسته‌بندی‌های منوی خود را اینجا مدیریت کنید.
           </CardDescription>
         </CardHeader>
         <CardContent>
