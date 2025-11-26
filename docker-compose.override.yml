@@ -1,0 +1,23 @@
+services:
+  app:
+    platform: linux/arm64
+    command: sh -c "npx prisma db push && npx prisma generate && npm run prisma:seed && npm run dev"
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_IMAGE_UNOPTIMIZED: "true"
+
+    # --- volumes را اینجا اضافه می‌کنیم ---
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/.next
+
+  db:
+    ports:
+      - "5432:5432"
+
+  minio:
+    ports:
+      - "9000:9000"
+      - "9001:9001"

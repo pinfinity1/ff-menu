@@ -8,6 +8,8 @@ import {
 import { CategoryClient } from "@/components/admin/CategoryClient";
 import { prisma } from "@/lib/db";
 
+export const dynamic = "force-dynamic";
+
 async function getCategoriesData() {
   try {
     const categories = await prisma.category.findMany({

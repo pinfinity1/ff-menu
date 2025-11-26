@@ -87,8 +87,8 @@ export function ProductClient({ initialProducts, initialCategories }) {
     if (!isSubmitting) setIsPageLoading(true);
     try {
       const [productsRes, categoriesRes] = await Promise.all([
-        fetch("/api/products"),
-        fetch("/api/category"),
+        fetch("/api/products", { cache: "no-store" }),
+        fetch("/api/category", { cache: "no-store" }),
       ]);
       if (!productsRes.ok || !categoriesRes.ok) {
         throw new Error("Failed to fetch data");

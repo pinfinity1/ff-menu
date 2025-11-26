@@ -3,6 +3,8 @@ import { Header } from "@/components/Header/Header";
 import { MenuItems } from "@/components/MenuItem/MenuItems";
 import { prisma } from "@/lib/db"; // اطمینان از ایمپورت prisma
 
+export const dynamic = "force-dynamic";
+
 async function getMenuData() {
   try {
     const data = await prisma.category.findMany({

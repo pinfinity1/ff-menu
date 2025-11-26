@@ -1,6 +1,5 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: "standalone",
   images: {
     // اگر متغیر محیطی IMAGE_UNOPTIMIZED برابر "true" بود، بهینه‌سازی را خاموش کن (برای لوکال داکر)
     // در غیر این صورت (روی سرور)، بهینه‌سازی روشن باشد.

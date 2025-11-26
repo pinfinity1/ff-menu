@@ -1,17 +1,8 @@
 services:
   app:
-    platform: linux/arm64
     build:
       context: .
       dockerfile: Dockerfile
-    # دستور اجرا: ابتدا دیتابیس را سینک می‌کند، سید می‌زند و سپس سرور را اجرا می‌کند
-    command: sh -c "npx prisma db push && npx prisma generate && npm run prisma:seed && npm run dev"
-    ports:
-      - "3000:3000"
-    volumes:
-      - .:/app
-      - /app/node_modules
-      - /app/.next
     environment:
       DATABASE_URL: ${DATABASE_URL}
       S3_ENDPOINT_INTERNAL: ${S3_ENDPOINT_INTERNAL}
@@ -19,33 +10,28 @@ services:
       S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY}
       S3_BUCKET_NAME: ${S3_BUCKET_NAME}
       NEXT_PUBLIC_S3_PUBLIC_URL: ${NEXT_PUBLIC_S3_PUBLIC_URL}
-      NEXT_PUBLIC_IMAGE_UNOPTIMIZED: ${NEXT_PUBLIC_IMAGE_UNOPTIMIZED}
     depends_on:
       - db
       - minio-setup
+    # --- نکته: اینجا دیگر volumes نداریم ---
 
   db:
     image: postgres:16-alpine
-    ports:
-      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
-    volumes:
-      - pgdata:/var/lib/postgresql/data
 
   minio:
     image: minio/minio:latest
-    ports:
-      - "9000:9000"
-      - "9001:9001"
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
     command: server /data --console-address ":9001"
     volumes:
       - miniodata:/data
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
 
   minio-setup:
     image: minio/mc:latest
@@ -53,7 +39,6 @@ services:
       - minio
     volumes:
       - ./minio-config:/config.d
-    # کانفیگ خودکار باکت و CORS
     entrypoint: >
       /bin/sh -c "
       sleep 10;

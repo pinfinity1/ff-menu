@@ -56,7 +56,7 @@ export function CategoryClient({ initialData }) {
   const fetchCategories = useCallback(async () => {
     if (!isSubmitting) setIsPageLoading(true);
     try {
-      const res = await fetch("/api/category");
+      const res = await fetch("/api/category", { cache: "no-store" });
       if (!res.ok) throw new Error("Failed to fetch");
       const data = await res.json();
       setCategories(data);

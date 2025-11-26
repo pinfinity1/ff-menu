@@ -8,6 +8,8 @@ import {
 import { ProductClient } from "@/components/admin/ProductClient";
 import { prisma } from "@/lib/db";
 
+export const dynamic = "force-dynamic";
+
 async function getProductsData() {
   try {
     const products = await prisma.product.findMany({
