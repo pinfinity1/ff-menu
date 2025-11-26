@@ -16,13 +16,7 @@ import {
 const NavLinks = () => (
   <nav className="flex flex-col gap-2 p-4 text-sm font-medium">
     <div className="flex items-center gap-3 px-2 mb-6 mt-2">
-      <Image
-        src={Logo}
-        alt="لوگو"
-        width={40}
-        height={40}
-        className="rounded-full shadow-sm"
-      />
+      <Image src={Logo} alt="لوگو" width={40} height={40} />
       <span className="text-lg font-bold text-gray-800">پنل مدیریت</span>
     </div>
 
