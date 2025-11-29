@@ -4,8 +4,6 @@ services:
     command: sh -c "npx prisma db push && npx prisma generate && npm run prisma:seed && npm run dev"
     ports:
       - "3000:3000"
-    environment:
-      NEXT_PUBLIC_IMAGE_UNOPTIMIZED: "true"
 
     # --- volumes را اینجا اضافه می‌کنیم ---
     volumes:
