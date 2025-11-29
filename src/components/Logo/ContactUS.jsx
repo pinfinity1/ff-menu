@@ -2,6 +2,13 @@ import Image from "next/image";
 import { Clock, Phone, Instagram } from "lucide-react";
 
 export const ContactUS = () => {
+  // ۱. تابعی که متن یا عدد را می‌گیرد و ارقامش را با toLocaleString فارسی می‌کند
+  const toPersian = (value) => {
+    return value
+      .toString()
+      .replace(/\d/g, (d) => parseInt(d).toLocaleString("fa-IR"));
+  };
+
   return (
     <div className="w-full flex flex-col items-center pb-8 font-picoopic">
       {/* تصویر با افکت سایه */}
@@ -19,7 +26,7 @@ export const ContactUS = () => {
       <div className="w-full flex flex-col gap-3 px-2">
         {/* کارت تلفن */}
         <a
-          href="tel:+983832226065"
+          href="tel:+983832226065" // نکته: لینک باید حتما انگلیسی بماند
           className="group flex items-center justify-between p-4 bg-gray-50 hover:bg-green-50 rounded-xl transition-colors duration-300 border border-transparent hover:border-green-200"
         >
           <div className="flex items-center gap-3">
@@ -30,11 +37,12 @@ export const ContactUS = () => {
               تماس با ما
             </span>
           </div>
+          {/* استفاده از تابع برای نمایش فارسی شماره */}
           <span
             dir="ltr"
             className="text-lg font-bold text-gray-800 group-hover:text-green-800"
           >
-            038-3222-6065
+            {toPersian("038-3222-6065")}
           </span>
         </a>
 
@@ -67,9 +75,13 @@ export const ContactUS = () => {
             <Clock size={20} />
           </div>
           <div className="flex flex-col">
-            <span className="text-xs text-gray-400 mb-0.5">ساعات کاری</span>
-            <span className="text-gray-700 font-bold text-sm md:text-base">
-              همه روزه از ۱۲ ظهر تا ۱۲ شب
+            <span className="text-xs text-gray-400 mb-0.5 text-right">
+              ساعات کاری
+            </span>
+            <span className="text-gray-700 font-bold text-sm md:text-base text-right">
+              {/* اینجا چون عدد ساده است، مستقیم هم می‌توان استفاده کرد */}
+              همه روزه از {(12).toLocaleString("fa-IR")} ظهر تا{" "}
+              {(12).toLocaleString("fa-IR")} شب
             </span>
           </div>
         </div>
