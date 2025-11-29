@@ -19,7 +19,7 @@ async function main() {
     where: { username: username },
     update: {
       // اگر می‌خواهید با هر بار اجرای seed رمز عبور آپدیت شود، خط زیر را از کامنت درآورید
-      // passwordHash: passwordHash,
+      passwordHash: passwordHash,
     },
     create: {
       username: username,

@@ -7,20 +7,18 @@ import {
   DrawerTrigger,
 } from "@/components/ui/drawer";
 import { Utensils } from "lucide-react";
-import MainLogo from "@/public/images/icon.png";
 
 export const Logo = () => {
   return (
     <>
       <div className="w-full flex flex-col items-center relative">
-        <div className="w-[160px] h-[160px] rounded-full overflow-hidden ">
+        <div className="relative w-32 h-32 md:w-40 md:h-40 rounded-full overflow-hidden bg-transparent">
           <Image
-            src={MainLogo}
-            width={0}
-            height={0}
+            src="/images/icon.png"
+            alt="لوگوی گرین فست‌فود"
+            fill
             priority
-            className="w-full h-full"
-            alt="logo"
+            className="object-cover"
           />
         </div>
         <Drawer>
@@ -31,7 +29,7 @@ export const Logo = () => {
           </DrawerTrigger>
           <DrawerContent className={"bg-white"}>
             <DrawerTitle className="pt-10 pb-6">
-              <div className="relative w-full h-[2px] bg-brand-primary-dark rounded-full">
+              <div className="relative w-full h-0.5 bg-brand-primary-dark rounded-full">
                 <span className="bg-white text-brand-primary-dark px-4 absolute right-10 -top-3">
                   درباره‌ ما
                 </span>

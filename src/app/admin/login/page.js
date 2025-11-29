@@ -6,7 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useState } from "react";
-import Logo from "@/public/images/icon.png";
+// import Logo from "@/public/images/icon.png";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -73,7 +73,12 @@ export default function AdminLoginPage() {
           {/* لوگو و عنوان */}
           <div className="flex flex-col items-center mb-8">
             <div className="w-20 h-20 relative mb-4 rounded-full overflow-hidden">
-              <Image src={Logo} alt="لوگو" fill className="object-cover" />
+              <Image
+                src={"/images/icon.png"}
+                alt="لوگو"
+                fill
+                className="object-cover"
+              />
             </div>
             <h1 className="text-2xl font-bold text-gray-800">
               ورود به پنل مدیریت

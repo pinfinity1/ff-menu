@@ -5,7 +5,15 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import Image from "next/image";
-import { Plus, Edit, Trash2, ArrowUp, ArrowDown, Loader2 } from "lucide-react";
+import {
+  Plus,
+  Edit,
+  Trash2,
+  ArrowUp,
+  ArrowDown,
+  Loader2,
+  Upload,
+} from "lucide-react";
 import {
   Table,
   TableBody,
@@ -19,7 +27,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription, // <-- این خط اضافه شد
+  DialogDescription,
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
@@ -43,6 +51,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ImageUploader } from "./ImageUploader";
 
+// اسکیمای اعتبارسنجی
 const formSchema = z.object({
   name: z.string().min(1, { message: "نام محصول الزامی است." }),
   description: z.string().optional(),
@@ -54,6 +63,7 @@ const formSchema = z.object({
   ]),
 });
 
+// تابع تبدیل اعداد فارسی به انگلیسی
 const normalizeNumber = (value) => {
   if (!value) return "";
   return value
@@ -67,6 +77,7 @@ export function ProductClient({ initialProducts, initialCategories }) {
   const [categories, setCategories] = useState(initialCategories || []);
   const [isPageLoading, setIsPageLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
@@ -119,13 +130,19 @@ export function ProductClient({ initialProducts, initialCategories }) {
     }));
   }, [categories, products]);
 
-  const handleOpenCreate = () => {
+  // --- باز کردن فرم ایجاد (با قابلیت انتخاب خودکار دسته) ---
+  const handleOpenCreate = (defaultCategoryId = null) => {
     setSelectedProduct(null);
     form.reset({
       name: "",
       description: "",
       price: "",
-      categoryId: categories[0]?.id ? String(categories[0].id) : "",
+      // اگر آیدی دسته پاس داده شد، آن را ست کن
+      categoryId: defaultCategoryId
+        ? String(defaultCategoryId)
+        : categories[0]?.id
+        ? String(categories[0].id)
+        : "",
       imageUrl: "",
     });
     setErrorMessage("");
@@ -151,6 +168,7 @@ export function ProductClient({ initialProducts, initialCategories }) {
     setIsDeleteOpen(true);
   };
 
+  // تابع آپلود عکس در سرور
   const uploadFile = async (file) => {
     const formData = new FormData();
     formData.append("file", file);
@@ -172,35 +190,32 @@ export function ProductClient({ initialProducts, initialCategories }) {
     setIsSubmitting(true);
     setErrorMessage("");
 
-    let uploadedImageUrl = null; // نگهداری آدرس عکس جدید برای رول‌بک احتمالی
+    let uploadedImageUrl = null;
 
     try {
-      let finalImageUrl = selectedProduct?.imageUrl || "/images/icon.png";
+      let finalImageUrl = values.imageUrl;
 
-      // ۱. تلاش برای آپلود عکس
+      // ۱. اگر فایل جدید آپلود شده باشد
       if (values.imageUrl instanceof File) {
         finalImageUrl = await uploadFile(values.imageUrl);
-        uploadedImageUrl = finalImageUrl; // ذخیره آدرس برای روز مبادا
+        uploadedImageUrl = finalImageUrl;
+      }
+      // ۲. نکته مهم: اگر مقدار رشته خالی باشد، یعنی کاربر عکس را حذف کرده
+      // پس همان "" را می‌فرستیم تا در دیتابیس جایگزین شود.
+      else if (typeof values.imageUrl === "string") {
+        finalImageUrl = values.imageUrl;
       }
 
       const productData = {
         ...values,
-        imageUrl:
-          typeof values.imageUrl === "string" && values.imageUrl
-            ? values.imageUrl
-            : finalImageUrl,
+        imageUrl: finalImageUrl,
       };
-
-      if (values.imageUrl instanceof File) {
-        productData.imageUrl = finalImageUrl;
-      }
 
       const url = selectedProduct
         ? `/api/products/${selectedProduct.id}`
         : "/api/products";
       const method = selectedProduct ? "PUT" : "POST";
 
-      // ۲. تلاش برای ذخیره در دیتابیس
       const res = await fetch(url, {
         method: method,
         headers: { "Content-Type": "application/json" },
@@ -208,25 +223,21 @@ export function ProductClient({ initialProducts, initialCategories }) {
       });
 
       if (res.ok) {
-        // موفقیت!
         setIsFormOpen(false);
         refreshData();
       } else {
-        // ۳. شکست در دیتابیس -> اجرای رول‌بک (حذف عکس آپلود شده)
+        // رول‌بک: اگر دیتابیس خطا داد، عکس آپلود شده را پاک کن
         if (uploadedImageUrl) {
-          console.log("Rolling back image upload...");
           await fetch("/api/upload", {
             method: "DELETE",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ url: uploadedImageUrl }),
           });
         }
-
         const data = await res.json();
         setErrorMessage(data.message || "خطایی رخ داد");
       }
     } catch (error) {
-      // خطای غیرمنتظره -> اجرای رول‌بک
       if (uploadedImageUrl) {
         await fetch("/api/upload", {
           method: "DELETE",
@@ -237,6 +248,43 @@ export function ProductClient({ initialProducts, initialCategories }) {
       setErrorMessage(error.message || "خطا در ارتباط با سرور");
     }
     setIsSubmitting(false);
+  };
+
+  // --- هندلر آپلود فایل اکسل ---
+  const handleExcelUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // بررسی پسوند فایل
+    if (!file.name.match(/\.(xlsx|xls)$/)) {
+      alert("لطفاً فقط فایل اکسل انتخاب کنید.");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    setIsImporting(true);
+    try {
+      const res = await fetch("/api/import", {
+        method: "POST",
+        body: formData,
+      });
+
+      const result = await res.json();
+
+      if (res.ok) {
+        alert(result.message);
+        refreshData();
+      } else {
+        alert("خطا: " + result.message);
+      }
+    } catch (error) {
+      alert("خطا در ارتباط با سرور");
+    } finally {
+      setIsImporting(false);
+      e.target.value = ""; // پاک کردن اینپوت برای استفاده مجدد
+    }
   };
 
   const onDelete = async () => {
@@ -286,10 +334,35 @@ export function ProductClient({ initialProducts, initialCategories }) {
 
   return (
     <>
-      <div className="flex justify-end mb-6">
+      <div className="flex justify-end mb-6 gap-3">
+        {/* --- دکمه ورود از اکسل --- */}
+        <div className="relative">
+          <input
+            type="file"
+            accept=".xlsx, .xls"
+            onChange={handleExcelUpload}
+            disabled={isImporting || isPageLoading}
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+            title="انتخاب فایل اکسل"
+          />
+          <Button
+            variant="outline"
+            className="bg-white text-green-700 border-green-600 hover:bg-green-50 h-11 px-4 transition-colors"
+            disabled={isImporting || isPageLoading}
+          >
+            {isImporting ? (
+              <Loader2 className="ml-2 h-5 w-5 animate-spin" />
+            ) : (
+              <Upload className="ml-2 h-5 w-5" />
+            )}
+            <span>{isImporting ? "در حال پردازش..." : "ورود از اکسل"}</span>
+          </Button>
+        </div>
+
+        {/* دکمه افزودن محصول (عمومی) */}
         <Button
-          onClick={handleOpenCreate}
-          disabled={categories.length === 0}
+          onClick={() => handleOpenCreate()}
+          disabled={categories.length === 0 || isImporting}
           className="bg-brand-primary hover:bg-brand-primary-dark shadow-lg shadow-brand-primary/20 text-white h-11 px-6 transition-all"
         >
           <Plus className="ml-2 h-5 w-5" />
@@ -307,7 +380,7 @@ export function ProductClient({ initialProducts, initialCategories }) {
           <Table>
             <TableHeader className="bg-gray-50/80">
               <TableRow>
-                <TableHead className="w-[80px] text-right">عکس</TableHead>
+                <TableHead className="w-20 text-right">عکس</TableHead>
                 <TableHead className="text-right">نام محصول</TableHead>
                 <TableHead className="text-right">قیمت</TableHead>
                 <TableHead className="text-left pl-6">عملیات</TableHead>
@@ -327,13 +400,27 @@ export function ProductClient({ initialProducts, initialCategories }) {
               ) : (
                 groupedProducts.map((category) => (
                   <React.Fragment key={category.id}>
+                    {/* --- ردیف عنوان دسته‌بندی با دکمه افزودن اختصاصی --- */}
                     <TableRow className="bg-gray-50 hover:bg-gray-50 border-t border-b-0">
-                      <TableCell colSpan={4} className="py-3">
-                        <div className="flex items-center gap-2 pr-2">
-                          <span className="w-2 h-2 rounded-full bg-brand-primary"></span>
-                          <span className="font-bold text-gray-800 text-lg">
-                            {category.name}
-                          </span>
+                      <TableCell colSpan={4} className="py-2 px-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-brand-primary"></span>
+                            <span className="font-bold text-gray-800 text-lg">
+                              {category.name}
+                            </span>
+                          </div>
+
+                          {/* دکمه "افزودن به این دسته" */}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-brand-primary hover:text-brand-primary-dark hover:bg-brand-primary/10 h-8 px-3 text-xs font-medium transition-colors border border-brand-primary/20"
+                            onClick={() => handleOpenCreate(category.id)}
+                          >
+                            <Plus className="ml-1 h-3.5 w-3.5" />
+                            افزودن به این دسته
+                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -355,12 +442,28 @@ export function ProductClient({ initialProducts, initialCategories }) {
                         >
                           <TableCell>
                             <div className="relative w-12 h-12 rounded-lg overflow-hidden border border-gray-200">
-                              <Image
-                                src={product.imageUrl || "/images/icon.png"}
-                                alt={product.name}
-                                fill
-                                className="object-cover"
-                              />
+                              {/* شرط اصلاح‌شده برای ادمین */}
+                              {product.imageUrl &&
+                              product.imageUrl !== "/images/icon.png" ? (
+                                <Image
+                                  src={product.imageUrl}
+                                  alt={product.name}
+                                  fill
+                                  className="object-cover"
+                                />
+                              ) : (
+                                // اینجا می‌توانید از ImagePlaceholder استفاده کنید یا
+                                // اگر می‌خواهید ساده باشد، فقط یک عکس آیکون معمولی بگذارید
+                                <div className="w-full h-full bg-gray-50 flex items-center justify-center p-2 opacity-50">
+                                  <Image
+                                    src="/images/icon.png"
+                                    alt="default"
+                                    width={24}
+                                    height={24}
+                                    className="object-contain"
+                                  />
+                                </div>
+                              )}
                             </div>
                           </TableCell>
                           <TableCell className="font-medium text-gray-700 text-base">
@@ -426,6 +529,7 @@ export function ProductClient({ initialProducts, initialCategories }) {
         )}
       </div>
 
+      {/* --- دیالوگ فرم (ایجاد/ویرایش) --- */}
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
         <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto font-picoopic">
           <DialogHeader>
@@ -496,21 +600,17 @@ export function ProductClient({ initialProducts, initialCategories }) {
                     <FormLabel>قیمت (تومان)</FormLabel>
                     <FormControl>
                       <Input
-                        type="text" // تایپ را تکست می‌گذاریم تا بتوانیم ورودی فارسی را مدیریت کنیم
-                        inputMode="numeric" // در موبایل کیبورد عددی باز می‌کند
+                        type="text"
+                        inputMode="numeric"
                         placeholder="250000"
                         {...field}
                         onChange={(e) => {
-                          // ۱. دریافت مقدار ورودی
                           const rawValue = e.target.value;
-                          // ۲. تبدیل اعداد فارسی به انگلیسی
                           const normalized = normalizeNumber(rawValue);
-                          // ۳. حذف هر کاراکتری که عدد نیست (مثلاً حروف الفبا)
                           const numericValue = normalized.replace(
                             /[^0-9]/g,
                             ""
                           );
-                          // ۴. آپدیت کردن استیت فرم
                           field.onChange(numericValue);
                         }}
                         className="bg-gray-50 font-mono text-left"
@@ -532,7 +632,7 @@ export function ProductClient({ initialProducts, initialCategories }) {
                       <Textarea
                         placeholder="مثلا: سوسیس، کالباس، قارچ، فلفل دلمه‌ای..."
                         {...field}
-                        className="bg-gray-50 min-h-[80px]"
+                        className="bg-gray-50 min-h-20"
                       />
                     </FormControl>
                     <FormMessage />
@@ -564,7 +664,7 @@ export function ProductClient({ initialProducts, initialCategories }) {
                 </div>
               )}
 
-              <DialogFooter className="gap-2 sm:gap-0 pt-4 border-t mt-6">
+              <DialogFooter className="gap-2 pt-4 border-t mt-6">
                 <DialogClose asChild>
                   <Button
                     type="button"
@@ -592,6 +692,7 @@ export function ProductClient({ initialProducts, initialCategories }) {
         </DialogContent>
       </Dialog>
 
+      {/* --- دیالوگ حذف --- */}
       <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
         <DialogContent className="sm:max-w-[400px] font-picoopic">
           <DialogHeader>

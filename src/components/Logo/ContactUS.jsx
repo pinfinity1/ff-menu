@@ -1,62 +1,79 @@
-import { Clock, Phone } from "lucide-react";
 import Image from "next/image";
-import WhyGreenFastFood from "@/public/images/why-green-fast-food.jpeg";
+import { Clock, Phone, Instagram } from "lucide-react";
 
 export const ContactUS = () => {
   return (
-    <>
-      <div className="w-full min-h-[320px] pb-10">
-        <div className="w-[240px] h-[240px] overflow-hidden rounded mx-auto">
-          <Image
-            src={WhyGreenFastFood}
-            width={280}
-            height={280}
-            priority
-            className="object-cover rounded-full w-full h-full"
-            alt="why green"
-          />
-        </div>
-        <div className="w-full rounded p-6 text-right text-[16px] flex flex-col gap-6">
-          <div className="flex items-center gap-4">
-            <Phone size={24} />
-            <p>
-              <a dir="ltr" className="mr-2 underline " href="tel:+983832226065">
-                ۰۳۸-۳۲۲۲-۶۰۶۵
-              </a>
-            </p>
+    <div className="w-full flex flex-col items-center pb-8 font-picoopic">
+      {/* تصویر با افکت سایه */}
+      <div className="relative w-56 h-56 md:w-64 md:h-64 mb-8 rounded-2xl overflow-hidden shadow-xl shadow-brand-primary/10 rotate-3 hover:rotate-0 transition-transform duration-500 ease-out border-4 border-white">
+        <Image
+          src="/images/why-green-fast-food.jpeg"
+          alt="داستان گرین فست‌فود"
+          fill
+          priority
+          className="object-cover"
+        />
+      </div>
+
+      {/* لیست اطلاعات با طراحی کارتی */}
+      <div className="w-full flex flex-col gap-3 px-2">
+        {/* کارت تلفن */}
+        <a
+          href="tel:+983832226065"
+          className="group flex items-center justify-between p-4 bg-gray-50 hover:bg-green-50 rounded-xl transition-colors duration-300 border border-transparent hover:border-green-200"
+        >
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-white text-green-600 rounded-full shadow-sm group-hover:scale-110 transition-transform">
+              <Phone size={20} />
+            </div>
+            <span className="text-gray-600 group-hover:text-green-700 font-medium text-sm">
+              تماس با ما
+            </span>
           </div>
-          <div className="flex items-center  gap-4">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="lucide lucide-instagram-icon lucide-instagram"
-            >
-              <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
-              <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
-              <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
-            </svg>
-            <a
-              href="https://www.instagram.com/sabz.fastfood/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className=" font-bold underline"
-            >
-              sabz.fastfood
-            </a>
+          <span
+            dir="ltr"
+            className="text-lg font-bold text-gray-800 group-hover:text-green-800"
+          >
+            038-3222-6065
+          </span>
+        </a>
+
+        {/* کارت اینستاگرام */}
+        <a
+          href="https://www.instagram.com/sabz.fastfood/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="group flex items-center justify-between p-4 bg-gray-50 hover:bg-pink-50 rounded-xl transition-colors duration-300 border border-transparent hover:border-pink-200"
+        >
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-white text-pink-600 rounded-full shadow-sm group-hover:scale-110 transition-transform">
+              <Instagram size={20} />
+            </div>
+            <span className="text-gray-600 group-hover:text-pink-700 font-medium text-sm">
+              اینستاگرام
+            </span>
           </div>
-          <div className="flex items-center  gap-4">
+          <span
+            dir="ltr"
+            className="text-lg font-bold text-gray-800 group-hover:text-pink-800 font-sans"
+          >
+            @sabz.fastfood
+          </span>
+        </a>
+
+        {/* کارت ساعت کاری */}
+        <div className="flex items-center gap-3 p-4 bg-white border border-gray-100 rounded-xl shadow-sm mt-2">
+          <div className="p-2 bg-gray-100 text-gray-500 rounded-full">
             <Clock size={20} />
-            <p>از ۱۲ ظهر تا ۱۲ شب</p>
+          </div>
+          <div className="flex flex-col">
+            <span className="text-xs text-gray-400 mb-0.5">ساعات کاری</span>
+            <span className="text-gray-700 font-bold text-sm md:text-base">
+              همه روزه از ۱۲ ظهر تا ۱۲ شب
+            </span>
           </div>
         </div>
       </div>
-    </>
+    </div>
   );
 };

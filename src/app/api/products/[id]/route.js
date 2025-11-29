@@ -6,7 +6,8 @@ export const dynamic = "force-dynamic";
 
 export async function GET(request, { params }) {
   try {
-    const id = parseInt(params.id);
+    const { id: paramId } = await params;
+    const id = parseInt(paramId);
     const product = await prisma.product.findUnique({
       where: { id: id },
     });
@@ -28,7 +29,8 @@ export async function GET(request, { params }) {
 export async function PUT(request, { params }) {
   try {
     const data = await request.json(); // ۱. دیتای جدید از فرم
-    const id = parseInt(params.id);
+    const { id: paramId } = await params; // <--- باید await شود
+    const id = parseInt(paramId);
 
     if (!data.name || !data.price || !data.categoryId) {
       return NextResponse.json(
@@ -91,7 +93,8 @@ export async function PUT(request, { params }) {
 // تابع DELETE (حذف) آپدیت می‌شود
 export async function DELETE(request, { params }) {
   try {
-    const id = parseInt(params.id);
+    const { id: paramId } = await params;
+    const id = parseInt(paramId);
 
     // ۱. محصول را از دیتابیس می‌خوانیم تا URL عکس را داشته باشیم
     const productToDelete = await prisma.product.findUnique({

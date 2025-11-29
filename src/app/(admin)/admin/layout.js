@@ -2,7 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Home, Package, Folder, Menu } from "lucide-react";
 import { LogoutButton } from "@/components/admin/LogoutButton";
-import Logo from "@/public/images/icon.png";
+// import Logo from "@/public/images/icon.png";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -16,7 +16,7 @@ import {
 const NavLinks = () => (
   <nav className="flex flex-col gap-2 p-4 text-sm font-medium">
     <div className="flex items-center gap-3 px-2 mb-6 mt-2">
-      <Image src={Logo} alt="لوگو" width={40} height={40} />
+      <Image src={"/images/icon.png"} alt="لوگو" width={40} height={40} />
       <span className="text-lg font-bold text-gray-800">پنل مدیریت</span>
     </div>
 

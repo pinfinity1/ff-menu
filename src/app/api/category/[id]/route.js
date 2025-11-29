@@ -6,7 +6,8 @@ export const dynamic = "force-dynamic";
 // (تابع GET بدون تغییر)
 export async function GET(request, { params }) {
   try {
-    const id = parseInt(params.id);
+    const { id: paramId } = await params; // <--- باید await شود
+    const id = parseInt(paramId);
     const category = await prisma.category.findUnique({
       where: { id: id },
     });
@@ -34,7 +35,8 @@ export async function PUT(request, { params }) {
     // ۱. ابتدا request را مصرف می‌کنیم
     const { name } = await request.json();
     // ۲. سپس به params دسترسی پیدا می‌کنیم
-    const id = parseInt(params.id);
+    const { id: paramId } = await params; // <--- باید await شود
+    const id = parseInt(paramId);
     // -------------------------------------
 
     if (!name) {
@@ -65,7 +67,8 @@ export async function PUT(request, { params }) {
 // حذف یک دسته‌بندی
 export async function DELETE(request, { params }) {
   try {
-    const id = parseInt(params.id);
+    const { id: paramId } = await params; // <--- باید await شود
+    const id = parseInt(paramId);
 
     await prisma.category.delete({
       where: { id: id },

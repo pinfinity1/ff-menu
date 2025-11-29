@@ -302,7 +302,7 @@ export function CategoryClient({ initialData }) {
                   {errorMessage}
                 </p>
               )}
-              <DialogFooter className="gap-2 sm:gap-0 mt-6">
+              <DialogFooter className="gap-2 mt-6">
                 <DialogClose asChild>
                   <Button type="button" variant="outline" className="h-10">
                     انصراف

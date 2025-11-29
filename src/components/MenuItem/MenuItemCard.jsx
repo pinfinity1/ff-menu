@@ -1,5 +1,4 @@
 import Image from "next/image";
-import Logo from "@/public/images/icon.png";
 import {
   Dialog,
   DialogContent,
@@ -7,12 +6,16 @@ import {
   DialogTitle,
   DialogTrigger,
   DialogDescription,
-} from "@/components/ui/dialog"; // ایمپورت دیالوگ‌های shadcn
+} from "@/components/ui/dialog";
+import { ImagePlaceholder } from "@/components/ImagePlaceholder";
 
 const formatedNumber = (num) => Number(num).toLocaleString("fa-IR");
 
 function MenuItemCard({ productDetails }) {
   const { name, price, description, imageUrl } = productDetails;
+
+  // شرط اصلاح‌شده: اگر عکس نداشتیم یا عکس برابر با آیکون پیش‌فرض بود
+  const hasValidImage = imageUrl && imageUrl !== "/images/icon.png";
 
   return (
     <Dialog>
@@ -20,21 +23,26 @@ function MenuItemCard({ productDetails }) {
         {/* --- بخش عکس (تریگر مودال) --- */}
         <DialogTrigger asChild>
           <div className="relative w-24 h-24 min-w-24 md:w-full md:h-64 rounded-lg overflow-hidden bg-gray-50 cursor-pointer">
-            <Image
-              src={imageUrl || Logo}
-              alt={name}
-              fill
-              className="object-cover group-hover:scale-105 transition-transform duration-500"
-              sizes="(max-width: 768px) 100px, 100vw"
-            />
-            {/* یک لایه مخفی که روی هاور نشان می‌دهد عکس قابل کلیک است */}
-            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-200 flex items-center justify-center">
-              {/* می‌توان اینجا یک آیکون ذره‌بین هم گذاشت */}
-            </div>
+            {hasValidImage ? (
+              // اگر عکس واقعی داشت:
+              <>
+                <Image
+                  src={imageUrl}
+                  alt={name}
+                  fill
+                  className="object-cover group-hover:scale-105 transition-transform duration-500"
+                  sizes="(max-width: 768px) 100px, 100vw"
+                />
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-200 flex items-center justify-center"></div>
+              </>
+            ) : (
+              // اگر عکس نداشت یا عکس پیش‌فرض بود:
+              <ImagePlaceholder />
+            )}
           </div>
         </DialogTrigger>
 
-        {/* --- بخش محتوا (در کارت) --- */}
+        {/* --- بخش محتوا --- */}
         <div className="flex flex-col flex-1 justify-between h-24 md:h-auto">
           <div>
             <h3 className="font-bold text-lg text-gray-800 line-clamp-1">
@@ -45,7 +53,6 @@ function MenuItemCard({ productDetails }) {
             </p>
           </div>
 
-          {/* --- بخش قیمت --- */}
           <div className="flex items-center justify-end mt-1 md:mt-4">
             <div className="flex items-center gap-1 text-brand-primary-dark">
               <span className="text-xl font-bold tracking-tight">
@@ -93,24 +100,20 @@ function MenuItemCard({ productDetails }) {
           <DialogTitle className="text-xl font-bold text-right text-brand-primary-dark mb-2">
             {name}
           </DialogTitle>
-          {/* این خط برای رعایت استانداردهای دسترسی‌پذیری (Accessibility) لازم است */}
           <DialogDescription className="sr-only">
             جزئیات کامل محصول {name} به همراه قیمت و تصویر
           </DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col gap-4">
-          {/* عکس بزرگ در مودال */}
           <div className="relative w-full aspect-square rounded-lg overflow-hidden bg-gray-100 border border-gray-200">
-            <Image
-              src={imageUrl || Logo}
-              alt={name}
-              fill
-              className="object-cover"
-            />
+            {hasValidImage ? (
+              <Image src={imageUrl} alt={name} fill className="object-cover" />
+            ) : (
+              <ImagePlaceholder />
+            )}
           </div>
 
-          {/* توضیحات کامل */}
           <div className="text-right">
             <h4 className="font-bold text-sm text-gray-700 mb-1">محتویات:</h4>
             <p className="text-sm text-gray-600 leading-6">
@@ -118,7 +121,6 @@ function MenuItemCard({ productDetails }) {
             </p>
           </div>
 
-          {/* قیمت در پایین مودال */}
           <div className="flex items-center justify-between mt-2 border-t pt-4">
             <span className="text-gray-500 text-sm">قیمت:</span>
             <div className="flex items-center gap-1 text-brand-primary-dark text-xl font-bold">
