@@ -1,60 +1,28 @@
-// file: src/app/api/category/[id]/reorder/route.js
+// src/app/api/category/reorder/route.js
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 
-export const dynamic = "force-dynamic";
-
-// تابع کمکی برای جابجایی
-async function swapOrder(categoryA, categoryB) {
-  // از transaction استفاده می‌کنیم تا مطمئن شویم هر دو آپدیت با هم انجام می‌شوند
-  return prisma.$transaction([
-    prisma.category.update({
-      where: { id: categoryA.id },
-      data: { order: categoryB.order },
-    }),
-    prisma.category.update({
-      where: { id: categoryB.id },
-      data: { order: categoryA.order },
-    }),
-  ]);
-}
-
-export async function PATCH(request, { params }) {
+export async function PUT(request) {
   try {
-    const { direction } = await request.json(); // "up" or "down"
-    const id = parseInt(params.id);
+    const { orderedIds } = await request.json(); // لیستی از آیدی‌ها به ترتیب جدید
 
-    const categoryA = await prisma.category.findUnique({ where: { id: id } });
-    if (!categoryA) {
-      return NextResponse.json(
-        { message: "دسته‌بندی یافت نشد" },
-        { status: 404 }
-      );
+    if (!orderedIds || !Array.isArray(orderedIds)) {
+      return NextResponse.json({ message: "دیتای نامعتبر" }, { status: 400 });
     }
 
-    let categoryB;
-    if (direction === "up") {
-      // پیدا کردن نزدیک‌ترین دسته‌بندی با order کمتر
-      categoryB = await prisma.category.findFirst({
-        where: { order: { lt: categoryA.order } },
-        orderBy: { order: "desc" },
-      });
-    } else if (direction === "down") {
-      // پیدا کردن نزدیک‌ترین دسته‌بندی با order بیشتر
-      categoryB = await prisma.category.findFirst({
-        where: { order: { gt: categoryA.order } },
-        orderBy: { order: "asc" },
-      });
-    }
+    // استفاده از Transaction برای آپدیت همزمان و سریع
+    const transaction = orderedIds.map((id, index) =>
+      prisma.category.update({
+        where: { id: id },
+        data: { order: index }, // ایندکس آرایه میشه ترتیب جدید (0, 1, 2, ...)
+      })
+    );
 
-    // اگر categoryB وجود داشت (یعنی در ابتدا یا انتهای لیست نبود)، آن‌ها را جابجا کن
-    if (categoryB) {
-      await swapOrder(categoryA, categoryB);
-    }
+    await prisma.$transaction(transaction);
 
-    return NextResponse.json({ message: "ترتیب به‌روز شد" }, { status: 200 });
+    return NextResponse.json({ message: "ترتیب ذخیره شد" }, { status: 200 });
   } catch (error) {
-    console.error(error);
+    console.error("Reorder Error:", error);
     return NextResponse.json(
       { message: "Internal Server Error" },
       { status: 500 }

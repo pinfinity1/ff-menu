@@ -1,57 +1,28 @@
+// src/app/api/products/reorder/route.js
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 
-export const dynamic = "force-dynamic";
-
-async function swapOrder(productA, productB) {
-  return prisma.$transaction([
-    prisma.product.update({
-      where: { id: productA.id },
-      data: { order: productB.order },
-    }),
-    prisma.product.update({
-      where: { id: productB.id },
-      data: { order: productA.order },
-    }),
-  ]);
-}
-
-export async function PATCH(request, { params }) {
+export async function PUT(request) {
   try {
-    const id = parseInt(params.id);
-    const { direction } = await request.json();
+    const { orderedIds } = await request.json();
 
-    const productA = await prisma.product.findUnique({ where: { id: id } });
-    if (!productA) {
-      return NextResponse.json({ message: "محصول یافت نشد" }, { status: 404 });
+    if (!orderedIds || !Array.isArray(orderedIds)) {
+      return NextResponse.json({ message: "دیتای نامعتبر" }, { status: 400 });
     }
 
-    let productB;
-    if (direction === "up") {
-      productB = await prisma.product.findFirst({
-        where: {
-          order: { lt: productA.order },
-          categoryId: productA.categoryId,
-        },
-        orderBy: { order: "desc" },
-      });
-    } else if (direction === "down") {
-      productB = await prisma.product.findFirst({
-        where: {
-          order: { gt: productA.order },
-          categoryId: productA.categoryId,
-        },
-        orderBy: { order: "asc" },
-      });
-    }
+    // آپدیت گروهی و سریع
+    const transaction = orderedIds.map((id, index) =>
+      prisma.product.update({
+        where: { id: id },
+        data: { order: index },
+      })
+    );
 
-    if (productB) {
-      await swapOrder(productA, productB);
-    }
+    await prisma.$transaction(transaction);
 
-    return NextResponse.json({ message: "ترتیب به‌روز شد" }, { status: 200 });
+    return NextResponse.json({ message: "ترتیب ذخیره شد" }, { status: 200 });
   } catch (error) {
-    console.error(error);
+    console.error("Product Reorder Error:", error);
     return NextResponse.json(
       { message: "Internal Server Error" },
       { status: 500 }

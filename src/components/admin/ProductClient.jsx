@@ -9,12 +9,30 @@ import {
   Plus,
   Edit,
   Trash2,
-  ArrowUp,
-  ArrowDown,
   Loader2,
   Upload,
   Download,
+  GripVertical, // آیکون درگ
 } from "lucide-react";
+
+// --- ایمپورت‌های DND Kit ---
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+
 import {
   Table,
   TableBody,
@@ -52,7 +70,97 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ImageUploader } from "./ImageUploader";
 
-// اسکیمای اعتبارسنجی
+// --- کامپوننت سطر محصول (قابل کشیدن) ---
+function SortableProductRow({ product, onEdit, onDelete }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: product.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 10 : 1,
+    position: "relative",
+    opacity: isDragging ? 0.8 : 1,
+  };
+
+  const formatPrice = (price) => {
+    return new Intl.NumberFormat("fa-IR").format(Number(price));
+  };
+
+  return (
+    <TableRow
+      ref={setNodeRef}
+      style={style}
+      className={`hover:bg-gray-50/50 transition-colors border-b-gray-100 ${
+        isDragging
+          ? "bg-gray-50 shadow-lg scale-[1.01] border-2 border-brand-primary"
+          : ""
+      }`}
+    >
+      {/* ستون دستگیره */}
+      <TableCell className="w-10 text-center cursor-grab touch-none">
+        <div {...attributes} {...listeners} className="p-2">
+          <GripVertical className="h-5 w-5 text-gray-400 hover:text-gray-700" />
+        </div>
+      </TableCell>
+
+      <TableCell>
+        <div className="relative w-12 h-12 rounded-lg overflow-hidden border border-gray-200">
+          {product.imageUrl && product.imageUrl !== "/images/icon.png" ? (
+            <Image
+              src={product.imageUrl}
+              alt={product.name}
+              fill
+              className="object-cover"
+            />
+          ) : (
+            <div className="w-full h-full bg-gray-50 flex items-center justify-center p-2 opacity-50">
+              <Image
+                src="/images/icon.png"
+                alt="default"
+                width={24}
+                height={24}
+                className="object-contain"
+              />
+            </div>
+          )}
+        </div>
+      </TableCell>
+      <TableCell className="font-medium text-gray-700 text-base">
+        {product.name}
+      </TableCell>
+      <TableCell className="text-gray-600 font-mono text-base">
+        {formatPrice(product.price)}
+      </TableCell>
+      <TableCell className="flex gap-2 justify-end items-center h-16">
+        <Button
+          variant="outline"
+          size="icon"
+          className="h-9 w-9 text-blue-600 border-blue-200 hover:bg-blue-50"
+          onClick={() => onEdit(product)}
+        >
+          <Edit className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="outline"
+          size="icon"
+          className="h-9 w-9 text-red-600 border-red-200 hover:bg-red-50"
+          onClick={() => onDelete(product)}
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </TableCell>
+    </TableRow>
+  );
+}
+
+// --- تنظیمات فرم ---
 const formSchema = z.object({
   name: z.string().min(1, { message: "نام محصول الزامی است." }),
   description: z.string().optional(),
@@ -64,7 +172,6 @@ const formSchema = z.object({
   ]),
 });
 
-// تابع تبدیل اعداد فارسی به انگلیسی
 const normalizeNumber = (value) => {
   if (!value) return "";
   return value
@@ -95,6 +202,17 @@ export function ProductClient({ initialProducts, initialCategories }) {
     },
   });
 
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
   const fetchData = useCallback(async () => {
     if (!isSubmitting) setIsPageLoading(true);
     try {
@@ -102,12 +220,9 @@ export function ProductClient({ initialProducts, initialCategories }) {
         fetch("/api/products", { cache: "no-store" }),
         fetch("/api/category", { cache: "no-store" }),
       ]);
-      if (!productsRes.ok || !categoriesRes.ok) {
-        throw new Error("Failed to fetch data");
-      }
+      if (!productsRes.ok || !categoriesRes.ok) throw new Error("Failed");
       const productsData = await productsRes.json();
       const categoriesData = await categoriesRes.json();
-
       setProducts(productsData);
       setCategories(categoriesData);
     } catch (error) {
@@ -131,14 +246,68 @@ export function ProductClient({ initialProducts, initialCategories }) {
     }));
   }, [categories, products]);
 
-  // --- باز کردن فرم ایجاد (با قابلیت انتخاب خودکار دسته) ---
+  // --- هندلر درگ و دراپ ---
+  const handleDragEnd = (event) => {
+    const { active, over } = event;
+
+    if (!over || active.id === over.id) return;
+
+    // پیدا کردن محصول مبدا و مقصد
+    const activeProduct = products.find((p) => p.id === active.id);
+    const overProduct = products.find((p) => p.id === over.id);
+
+    if (!activeProduct || !overProduct) return;
+
+    // جلوگیری از درگ بین دسته‌های مختلف (فعلاً فقط داخل یک دسته مجاز است)
+    if (activeProduct.categoryId !== overProduct.categoryId) return;
+
+    // اعمال تغییرات
+    setProducts((currentProducts) => {
+      // فقط محصولات این دسته‌بندی را جدا می‌کنیم
+      const categoryProducts = currentProducts.filter(
+        (p) => p.categoryId === activeProduct.categoryId
+      );
+      // بقیه محصولات که دست نخورده‌اند
+      const otherProducts = currentProducts.filter(
+        (p) => p.categoryId !== activeProduct.categoryId
+      );
+
+      const oldIndex = categoryProducts.findIndex((p) => p.id === active.id);
+      const newIndex = categoryProducts.findIndex((p) => p.id === over.id);
+
+      const reorderedCategoryProducts = arrayMove(
+        categoryProducts,
+        oldIndex,
+        newIndex
+      );
+
+      // ارسال به سرور
+      saveNewOrder(reorderedCategoryProducts);
+
+      return [...otherProducts, ...reorderedCategoryProducts];
+    });
+  };
+
+  const saveNewOrder = async (reorderedList) => {
+    const orderedIds = reorderedList.map((p) => p.id);
+    try {
+      await fetch("/api/products/reorder", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderedIds }),
+      });
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  // --- توابع باز کردن مودال‌ها ---
   const handleOpenCreate = (defaultCategoryId = null) => {
     setSelectedProduct(null);
     form.reset({
       name: "",
       description: "",
       price: "",
-      // اگر آیدی دسته پاس داده شد، آن را ست کن
       categoryId: defaultCategoryId
         ? String(defaultCategoryId)
         : categories[0]?.id
@@ -169,49 +338,34 @@ export function ProductClient({ initialProducts, initialCategories }) {
     setIsDeleteOpen(true);
   };
 
-  // تابع آپلود عکس در سرور
+  // --- آپلود فایل ---
   const uploadFile = async (file) => {
     const formData = new FormData();
     formData.append("file", file);
-    try {
-      const response = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      });
-      if (!response.ok) throw new Error("خطا در آپلود فایل");
-      const res = await response.json();
-      return res.publicUrl;
-    } catch (err) {
-      console.error(err);
-      throw err;
-    }
+    const response = await fetch("/api/upload", {
+      method: "POST",
+      body: formData,
+    });
+    if (!response.ok) throw new Error("خطا در آپلود فایل");
+    const res = await response.json();
+    return res.publicUrl;
   };
 
+  // --- سابمیت فرم ---
   const onSubmit = async (values) => {
     setIsSubmitting(true);
     setErrorMessage("");
-
     let uploadedImageUrl = null;
-
     try {
       let finalImageUrl = values.imageUrl;
-
-      // ۱. اگر فایل جدید آپلود شده باشد
       if (values.imageUrl instanceof File) {
         finalImageUrl = await uploadFile(values.imageUrl);
         uploadedImageUrl = finalImageUrl;
-      }
-      // ۲. نکته مهم: اگر مقدار رشته خالی باشد، یعنی کاربر عکس را حذف کرده
-      // پس همان "" را می‌فرستیم تا در دیتابیس جایگزین شود.
-      else if (typeof values.imageUrl === "string") {
+      } else if (typeof values.imageUrl === "string") {
         finalImageUrl = values.imageUrl;
       }
 
-      const productData = {
-        ...values,
-        imageUrl: finalImageUrl,
-      };
-
+      const productData = { ...values, imageUrl: finalImageUrl };
       const url = selectedProduct
         ? `/api/products/${selectedProduct.id}`
         : "/api/products";
@@ -227,11 +381,9 @@ export function ProductClient({ initialProducts, initialCategories }) {
         setIsFormOpen(false);
         refreshData();
       } else {
-        // رول‌بک: اگر دیتابیس خطا داد، عکس آپلود شده را پاک کن
         if (uploadedImageUrl) {
           await fetch("/api/upload", {
             method: "DELETE",
-            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ url: uploadedImageUrl }),
           });
         }
@@ -239,41 +391,28 @@ export function ProductClient({ initialProducts, initialCategories }) {
         setErrorMessage(data.message || "خطایی رخ داد");
       }
     } catch (error) {
-      if (uploadedImageUrl) {
-        await fetch("/api/upload", {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url: uploadedImageUrl }),
-        });
-      }
       setErrorMessage(error.message || "خطا در ارتباط با سرور");
     }
     setIsSubmitting(false);
   };
 
-  // --- هندلر آپلود فایل اکسل ---
+  // --- آپلود اکسل ---
   const handleExcelUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-
-    // بررسی پسوند فایل
     if (!file.name.match(/\.(xlsx|xls)$/)) {
       alert("لطفاً فقط فایل اکسل انتخاب کنید.");
       return;
     }
-
     const formData = new FormData();
     formData.append("file", file);
-
     setIsImporting(true);
     try {
       const res = await fetch("/api/import", {
         method: "POST",
         body: formData,
       });
-
       const result = await res.json();
-
       if (res.ok) {
         alert(result.message);
         refreshData();
@@ -284,7 +423,7 @@ export function ProductClient({ initialProducts, initialCategories }) {
       alert("خطا در ارتباط با سرور");
     } finally {
       setIsImporting(false);
-      e.target.value = ""; // پاک کردن اینپوت برای استفاده مجدد
+      e.target.value = "";
     }
   };
 
@@ -309,34 +448,10 @@ export function ProductClient({ initialProducts, initialCategories }) {
     setIsSubmitting(false);
   };
 
-  const handleReorder = async (productId, direction) => {
-    setIsSubmitting(true);
-    try {
-      const res = await fetch(`/api/products/${productId}/reorder`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ direction: direction }),
-      });
-      if (res.ok) {
-        refreshData();
-      } else {
-        const data = await res.json();
-        setErrorMessage(data.message || "خطا در جابجایی");
-      }
-    } catch (error) {
-      setErrorMessage("خطا در ارتباط با سرور");
-    }
-    setIsSubmitting(false);
-  };
-
-  const formatPrice = (price) => {
-    return new Intl.NumberFormat("fa-IR").format(Number(price));
-  };
-
   return (
     <>
       <div className="flex justify-end mb-6 gap-3">
-        {/* --- دکمه ورود از اکسل --- */}
+        {/* دکمه‌های اکسل */}
         <div className="relative">
           <input
             type="file"
@@ -363,13 +478,14 @@ export function ProductClient({ initialProducts, initialCategories }) {
         <Button
           variant="outline"
           className="bg-white text-blue-700 border-blue-600 hover:bg-blue-50 h-11 px-4 transition-colors"
-          onClick={() => window.open("/api/export", "_blank")}
+          onClick={() => (window.location.href = "/api/export")}
+          disabled={isPageLoading}
         >
           <Download className="ml-2 h-5 w-5" />
           <span>خروجی اکسل</span>
         </Button>
 
-        {/* دکمه افزودن محصول (عمومی) */}
+        {/* دکمه افزودن */}
         <Button
           onClick={() => handleOpenCreate()}
           disabled={categories.length === 0 || isImporting}
@@ -387,159 +503,93 @@ export function ProductClient({ initialProducts, initialCategories }) {
             <p>در حال به‌روزرسانی لیست...</p>
           </div>
         ) : (
-          <Table>
-            <TableHeader className="bg-gray-50/80">
-              <TableRow>
-                <TableHead className="w-20 text-right">عکس</TableHead>
-                <TableHead className="text-right">نام محصول</TableHead>
-                <TableHead className="text-right">قیمت</TableHead>
-                <TableHead className="text-left pl-6">عملیات</TableHead>
-              </TableRow>
-            </TableHeader>
-
-            <TableBody>
-              {groupedProducts.length === 0 ? (
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <Table>
+              <TableHeader className="bg-gray-50/80">
                 <TableRow>
-                  <TableCell
-                    colSpan={4}
-                    className="text-center h-32 text-gray-500"
-                  >
-                    هیچ دسته‌بندی یا محصولی یافت نشد.
-                  </TableCell>
+                  <TableHead className="w-10"></TableHead>
+                  <TableHead className="w-20 text-right">عکس</TableHead>
+                  <TableHead className="text-right">نام محصول</TableHead>
+                  <TableHead className="text-right">قیمت</TableHead>
+                  <TableHead className="text-left pl-6">عملیات</TableHead>
                 </TableRow>
-              ) : (
-                groupedProducts.map((category) => (
-                  <React.Fragment key={category.id}>
-                    {/* --- ردیف عنوان دسته‌بندی با دکمه افزودن اختصاصی --- */}
-                    <TableRow className="bg-gray-50 hover:bg-gray-50 border-t border-b-0">
-                      <TableCell colSpan={4} className="py-2 px-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <span className="w-2 h-2 rounded-full bg-brand-primary"></span>
-                            <span className="font-bold text-gray-800 text-lg">
-                              {category.name}
-                            </span>
+              </TableHeader>
+
+              <TableBody>
+                {groupedProducts.length === 0 ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={5}
+                      className="text-center h-32 text-gray-500"
+                    >
+                      هیچ دسته‌بندی یا محصولی یافت نشد.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  groupedProducts.map((category) => (
+                    <React.Fragment key={category.id}>
+                      {/* هدر دسته‌بندی */}
+                      <TableRow className="bg-gray-50 hover:bg-gray-50 border-t border-b-0">
+                        <TableCell colSpan={5} className="py-2 px-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className="w-2 h-2 rounded-full bg-brand-primary"></span>
+                              <span className="font-bold text-gray-800 text-lg">
+                                {category.name}
+                              </span>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-brand-primary hover:text-brand-primary-dark hover:bg-brand-primary/10 h-8 px-3 text-xs font-medium transition-colors border border-brand-primary/20"
+                              onClick={() => handleOpenCreate(category.id)}
+                            >
+                              <Plus className="ml-1 h-3.5 w-3.5" />
+                              افزودن به این دسته
+                            </Button>
                           </div>
-
-                          {/* دکمه "افزودن به این دسته" */}
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-brand-primary hover:text-brand-primary-dark hover:bg-brand-primary/10 h-8 px-3 text-xs font-medium transition-colors border border-brand-primary/20"
-                            onClick={() => handleOpenCreate(category.id)}
-                          >
-                            <Plus className="ml-1 h-3.5 w-3.5" />
-                            افزودن به این دسته
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-
-                    {category.products.length === 0 ? (
-                      <TableRow>
-                        <TableCell
-                          colSpan={4}
-                          className="text-center text-gray-400 py-4 text-sm border-b-0"
-                        >
-                          (خالی)
                         </TableCell>
                       </TableRow>
-                    ) : (
-                      category.products.map((product, index) => (
-                        <TableRow
-                          key={product.id}
-                          className="hover:bg-gray-50/50 transition-colors border-b-gray-100"
-                        >
-                          <TableCell>
-                            <div className="relative w-12 h-12 rounded-lg overflow-hidden border border-gray-200">
-                              {/* شرط اصلاح‌شده برای ادمین */}
-                              {product.imageUrl &&
-                              product.imageUrl !== "/images/icon.png" ? (
-                                <Image
-                                  src={product.imageUrl}
-                                  alt={product.name}
-                                  fill
-                                  className="object-cover"
-                                />
-                              ) : (
-                                // اینجا می‌توانید از ImagePlaceholder استفاده کنید یا
-                                // اگر می‌خواهید ساده باشد، فقط یک عکس آیکون معمولی بگذارید
-                                <div className="w-full h-full bg-gray-50 flex items-center justify-center p-2 opacity-50">
-                                  <Image
-                                    src="/images/icon.png"
-                                    alt="default"
-                                    width={24}
-                                    height={24}
-                                    className="object-contain"
-                                  />
-                                </div>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell className="font-medium text-gray-700 text-base">
-                            {product.name}
-                          </TableCell>
-                          <TableCell className="text-gray-600 font-mono text-base">
-                            {formatPrice(product.price)}
-                          </TableCell>
-                          <TableCell className="flex gap-2 justify-end items-center h-16">
-                            <div className="flex items-center bg-gray-100 rounded-lg p-1 ml-3">
-                              <Button
-                                variant="ghost"
-                                size="icon-sm"
-                                className="h-7 w-7 hover:bg-white rounded-md"
-                                onClick={() => handleReorder(product.id, "up")}
-                                disabled={isSubmitting || index === 0}
-                              >
-                                <ArrowUp className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon-sm"
-                                className="h-7 w-7 hover:bg-white rounded-md"
-                                onClick={() =>
-                                  handleReorder(product.id, "down")
-                                }
-                                disabled={
-                                  isSubmitting ||
-                                  index === category.products.length - 1
-                                }
-                              >
-                                <ArrowDown className="h-4 w-4" />
-                              </Button>
-                            </div>
 
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              className="h-9 w-9 text-blue-600 border-blue-200 hover:bg-blue-50"
-                              onClick={() => handleOpenEdit(product)}
-                              disabled={isSubmitting}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              className="h-9 w-9 text-red-600 border-red-200 hover:bg-red-50"
-                              onClick={() => handleOpenDelete(product)}
-                              disabled={isSubmitting}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                      {/* لیست محصولات این دسته */}
+                      {category.products.length === 0 ? (
+                        <TableRow>
+                          <TableCell
+                            colSpan={5}
+                            className="text-center text-gray-400 py-4 text-sm border-b-0"
+                          >
+                            (خالی)
                           </TableCell>
                         </TableRow>
-                      ))
-                    )}
-                  </React.Fragment>
-                ))
-              )}
-            </TableBody>
-          </Table>
+                      ) : (
+                        <SortableContext
+                          items={category.products.map((p) => p.id)}
+                          strategy={verticalListSortingStrategy}
+                        >
+                          {category.products.map((product) => (
+                            <SortableProductRow
+                              key={product.id}
+                              product={product}
+                              onEdit={handleOpenEdit}
+                              onDelete={handleOpenDelete}
+                            />
+                          ))}
+                        </SortableContext>
+                      )}
+                    </React.Fragment>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </DndContext>
         )}
       </div>
 
-      {/* --- دیالوگ فرم (ایجاد/ویرایش) --- */}
+      {/* --- مودال فرم (Create/Edit) --- */}
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
         <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto font-picoopic">
           <DialogHeader>
@@ -640,7 +690,7 @@ export function ProductClient({ initialProducts, initialCategories }) {
                     <FormLabel>محتویات / توضیحات</FormLabel>
                     <FormControl>
                       <Textarea
-                        placeholder="مثلا: سوسیس، کالباس، قارچ، فلفل دلمه‌ای..."
+                        placeholder="..."
                         {...field}
                         className="bg-gray-50 min-h-20"
                       />
@@ -702,7 +752,7 @@ export function ProductClient({ initialProducts, initialCategories }) {
         </DialogContent>
       </Dialog>
 
-      {/* --- دیالوگ حذف --- */}
+      {/* --- مودال حذف --- */}
       <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
         <DialogContent className="sm:max-w-[400px] font-picoopic">
           <DialogHeader>
@@ -716,23 +766,11 @@ export function ProductClient({ initialProducts, initialCategories }) {
                 "{selectedProduct?.name}"
               </span>
               مطمئن هستید؟
-              <br />
-              این عملیات غیرقابل بازگشت است.
             </DialogDescription>
           </DialogHeader>
-          {errorMessage && (
-            <p className="text-sm text-red-600 bg-red-50 p-2 rounded mt-2">
-              {errorMessage}
-            </p>
-          )}
           <DialogFooter className="gap-2 mt-4">
             <DialogClose asChild>
-              <Button
-                type="button"
-                variant="outline"
-                disabled={isSubmitting}
-                className="flex-1"
-              >
+              <Button type="button" variant="outline" disabled={isSubmitting}>
                 انصراف
               </Button>
             </DialogClose>
@@ -740,7 +778,7 @@ export function ProductClient({ initialProducts, initialCategories }) {
               onClick={onDelete}
               disabled={isSubmitting}
               variant="destructive"
-              className="flex-1 bg-red-600 hover:bg-red-700"
+              className="bg-red-600 hover:bg-red-700"
             >
               {isSubmitting ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
