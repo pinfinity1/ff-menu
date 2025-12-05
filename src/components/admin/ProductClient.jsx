@@ -13,6 +13,7 @@ import {
   ArrowDown,
   Loader2,
   Upload,
+  Download,
 } from "lucide-react";
 import {
   Table,
@@ -358,6 +359,15 @@ export function ProductClient({ initialProducts, initialCategories }) {
             <span>{isImporting ? "در حال پردازش..." : "ورود از اکسل"}</span>
           </Button>
         </div>
+
+        <Button
+          variant="outline"
+          className="bg-white text-blue-700 border-blue-600 hover:bg-blue-50 h-11 px-4 transition-colors"
+          onClick={() => window.open("/api/export", "_blank")}
+        >
+          <Download className="ml-2 h-5 w-5" />
+          <span>خروجی اکسل</span>
+        </Button>
 
         {/* دکمه افزودن محصول (عمومی) */}
         <Button

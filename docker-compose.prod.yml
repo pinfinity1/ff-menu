@@ -5,18 +5,26 @@ services:
 
     # 👇 دستور اجرا ساده شد: فقط آپدیت دیتابیس و استارت
     # (دیگر جنریت و بیلد و سید اینجا انجام نمی‌شود)
-    command: sh -c "npx prisma db push && npm start"
+    command: sh -c "npx prisma db push && npm run prisma:seed && npm start"
 
     ports:
       - "3000:3000"
 
     restart: always
 
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
     environment:
       NODE_ENV: production
       HOSTNAME: "0.0.0.0"
       PORT: "3000"
-      # بقیه متغیرهای محیطی از فایل .env خوانده می‌شوند
+      ADMIN_USERNAME: ${ADMIN_USERNAME}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
 
   db:
     restart: always
