@@ -67,7 +67,7 @@ jobs:
 
                       # ۵. بالا آوردن کانتینرها با ایمیج جدید
                       echo "🚀 Restarting App..."
-                      docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+                      docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d --force-recreate app
 
                       # ۶. پاک کردن فایل‌های اضافی برای پر نشدن حافظه سرور
                       echo "🧹 Cleanup..."
