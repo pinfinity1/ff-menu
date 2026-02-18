@@ -1,3 +1,4 @@
+import { Toaster } from "sonner";
 import "./globals.css";
 
 export const metadata = {
@@ -10,6 +11,16 @@ export default function RootLayout({ children }) {
     <html lang="fa" dir="rtl" suppressHydrationWarning>
       <body className={`antialiased bg-gray-50 text-gray-900 min-h-screen`}>
         {children}
+        <Toaster
+          toastOptions={{
+            style: {
+              fontFamily: "picoopic",
+            },
+            classNames: {
+              toast: "font-picoopic",
+            },
+          }}
+        />
       </body>
     </html>
   );

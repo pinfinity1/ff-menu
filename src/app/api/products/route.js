@@ -11,6 +11,9 @@ export async function GET() {
         category: {
           select: { name: true },
         },
+        variants: {
+          orderBy: { price: "asc" },
+        },
       },
       orderBy: { order: "asc" },
     });
@@ -18,6 +21,7 @@ export async function GET() {
     const formattedProducts = products.map((product) => ({
       ...product,
       categoryName: product.category.name,
+      hasVariants: product.variants.length > 0,
     }));
 
     return NextResponse.json(formattedProducts);
@@ -25,7 +29,7 @@ export async function GET() {
     console.error(error);
     return NextResponse.json(
       { message: "Internal Server Error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -33,10 +37,10 @@ export async function GET() {
 export async function POST(request) {
   try {
     const data = await request.json();
-    if (!data.name || !data.price || !data.categoryId) {
+    if (!data.name || !data.categoryId) {
       return NextResponse.json(
         { message: "فیلدهای اجباری ناقص هستند" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -52,11 +56,24 @@ export async function POST(request) {
     const productData = {
       name: data.name,
       description: data.description,
-      price: parseFloat(data.price),
       categoryId: categoryId,
       imageUrl: data.imageUrl || "/images/icon.png",
-      order: newOrder, // <-- ۳. ذخیره order جدید
+      order: newOrder,
+      price: parseFloat(data.price || 0),
     };
+
+    if (
+      data.variants &&
+      Array.isArray(data.variants) &&
+      data.variants.length > 0
+    ) {
+      productData.variants = {
+        create: data.variants.map((v) => ({
+          name: v.name,
+          price: parseFloat(v.price),
+        })),
+      };
+    }
 
     const newProduct = await prisma.product.create({
       data: productData,
@@ -67,7 +84,7 @@ export async function POST(request) {
     console.error(error);
     return NextResponse.json(
       { message: error.message || "Internal Server Error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

@@ -1,4 +1,3 @@
-// src/app/api/export/route.js
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import * as XLSX from "xlsx";
@@ -7,37 +6,54 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    // ۱. دریافت تمام محصولات با نام دسته‌بندی
     const products = await prisma.product.findMany({
       include: {
         category: true,
+        variants: true,
       },
-      orderBy: {
-        category: { order: "asc" },
-      },
+      orderBy: [{ category: { order: "asc" } }, { order: "asc" }],
     });
 
-    // ۲. تبدیل فرمت دیتا برای اکسل (دقیقا مطابق فرمتی که برای ایمپورت نیاز دارید)
-    const excelData = products.map((p) => ({
-      name: p.name,
-      price: Number(p.price),
-      category: p.category.name, // نام دسته‌بندی برای ایمپورت مهم است
-      description: p.description || "",
-    }));
+    const exportData = products.map((product) => {
+      let priceDisplay = "";
 
-    // ۳. ساخت ورک‌بوک اکسل
-    const worksheet = XLSX.utils.json_to_sheet(excelData);
+      if (product.variants && product.variants.length > 0) {
+        priceDisplay = product.variants
+          .map((v) => `${v.name}: ${Number(v.price).toLocaleString("fa-IR")}`)
+          .join(" | ");
+      } else {
+        priceDisplay = Number(product.price || 0).toLocaleString("fa-IR");
+      }
+
+      return {
+        شناسه: product.id,
+        "نام محصول": product.name,
+        دسته‌بندی: product.category ? product.category.name : "بدون دسته",
+        قیمت: priceDisplay,
+        توضیحات: product.description || "-",
+      };
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+
+    // تنظیم عرض ستون‌ها
+    worksheet["!cols"] = [
+      { wch: 5 }, // ID
+      { wch: 20 }, // Name
+      { wch: 15 }, // Category
+      { wch: 40 }, // Price (چون رشته طولانی می‌شود عرض را زیاد کردیم)
+      { wch: 40 }, // Description
+    ];
+
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Menu");
+    XLSX.utils.book_append_sheet(workbook, worksheet, "لیست محصولات");
 
-    // ۴. تبدیل به بافر
     const buf = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
 
-    // ۵. ارسال فایل برای دانلود
     return new NextResponse(buf, {
       status: 200,
       headers: {
-        "Content-Disposition": 'attachment; filename="menu-backup.xlsx"',
+        "Content-Disposition": 'attachment; filename="menu_products.xlsx"',
         "Content-Type":
           "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       },
@@ -45,8 +61,8 @@ export async function GET() {
   } catch (error) {
     console.error("Export Error:", error);
     return NextResponse.json(
-      { message: "خطا در تولید فایل اکسل" },
-      { status: 500 }
+      { message: "Error exporting data" },
+      { status: 500 },
     );
   }
 }

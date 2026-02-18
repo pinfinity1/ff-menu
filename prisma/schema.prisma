@@ -25,13 +25,23 @@ model Product {
   id          Int      @id @default(autoincrement())
   name        String
   description String?  
-  price       Decimal    
+  price       Decimal  
   imageUrl    String?  @default("/images/icon.png") 
-
   order       Int      @default(0)
 
   category   Category @relation(fields: [categoryId], references: [id])
   categoryId Int      
+
+  variants   ProductVariant[]
+}
+
+model ProductVariant {
+  id        Int     @id @default(autoincrement())
+  name      String 
+  price     Decimal
+  
+  productId Int
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 }
 
 model User {

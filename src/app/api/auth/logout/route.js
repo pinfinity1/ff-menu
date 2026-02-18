@@ -3,7 +3,8 @@ import { cookies } from "next/headers";
 
 export async function POST() {
   try {
-    cookies().set("session", "", {
+    const cookieStore = await cookies();
+    cookieStore.set("session", "", {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       maxAge: -1,

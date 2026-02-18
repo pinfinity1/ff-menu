@@ -8,8 +8,14 @@ export async function GET(request, { params }) {
   try {
     const { id: paramId } = await params;
     const id = parseInt(paramId);
+
     const product = await prisma.product.findUnique({
       where: { id: id },
+      include: {
+        variants: {
+          orderBy: { price: "asc" },
+        },
+      },
     });
 
     if (product) {
@@ -20,83 +26,95 @@ export async function GET(request, { params }) {
     console.error(error);
     return NextResponse.json(
       { message: "Internal Server Error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
 
-// تابع PUT (ویرایش) آپدیت می‌شود
 export async function PUT(request, { params }) {
   try {
-    const data = await request.json(); // ۱. دیتای جدید از فرم
-    const { id: paramId } = await params; // <--- باید await شود
+    const data = await request.json();
+    const { id: paramId } = await params;
     const id = parseInt(paramId);
 
-    if (!data.name || !data.price || !data.categoryId) {
+    // 1. استخراج داده‌ها از بدنه درخواست
+    const { name, description, price, categoryId, imageUrl, variants } = data;
+
+    // 2. منطق اصلاح قیمت: اگر محصول سایزبندی (Variant) دارد، قیمت اصلی را 0 می‌گذاریم
+    // این کار باعث می‌شود در دیتابیس قیمت قدیمی باقی نماند
+    const finalPrice = variants && variants.length > 0 ? 0 : Number(price || 0);
+
+    if (!name || !categoryId) {
       return NextResponse.json(
         { message: "فیلدهای اجباری ناقص هستند" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    // ۲. محصول قدیمی را از دیتابیس می‌خوانیم تا URL عکس قبلی را داشته باشیم
+    // بررسی و حذف عکس قدیمی از S3 (لاجیک قبلی شما که درست بود)
     const oldProduct = await prisma.product.findUnique({
       where: { id: id },
-      select: { imageUrl: true }, // فقط به آدرس عکس نیاز داریم
+      select: { imageUrl: true },
     });
 
-    if (!oldProduct) {
-      return NextResponse.json({ message: "محصول یافت نشد" }, { status: 404 });
-    }
-
-    const oldImageUrl = oldProduct.imageUrl;
-    const newImageUrl = data.imageUrl;
-
-    // ۳. بررسی می‌کنیم که آیا عکس قدیمی باید حذف شود؟
-    // (یعنی عکس قدیمی وجود داشته، با عکس جدید متفاوت بوده، و عکس پیش‌فرض هم نبوده)
     if (
-      oldImageUrl &&
-      oldImageUrl !== newImageUrl &&
-      oldImageUrl !== "/images/icon.png"
+      oldProduct &&
+      oldProduct.imageUrl !== imageUrl &&
+      oldProduct.imageUrl !== "/images/icon.png"
     ) {
-      await deleteFileFromS3(oldImageUrl); // <-- حذف عکس قدیمی از MinIO
+      await deleteFileFromS3(oldProduct.imageUrl);
     }
 
-    // ۴. آماده‌سازی دیتای نهایی
-    const productData = {
-      name: data.name,
-      description: data.description,
-      price: parseFloat(data.price),
-      categoryId: parseInt(data.categoryId),
-      imageUrl: newImageUrl || "/images/icon.png", // اگر عکس جدید "" بود، پیش‌فرض را بگذار
-    };
+    // 3. اجرای تراکنش برای آپدیت همزمان محصول و سایزها
+    const result = await prisma.$transaction(async (tx) => {
+      const updatedProduct = await tx.product.update({
+        where: { id: id },
+        data: {
+          name,
+          description,
+          price: finalPrice, // 👈 استفاده از قیمت اصلاح شده
+          categoryId: parseInt(categoryId),
+          imageUrl: imageUrl || "/images/icon.png",
+        },
+      });
 
-    // ۵. دیتابیس را با اطلاعات جدید آپدیت می‌کنیم
-    const updated = await prisma.product.update({
-      where: { id: id },
-      data: productData,
+      // مدیریت سایزها (Variants)
+      if (variants && Array.isArray(variants)) {
+        // حذف سایزهای قبلی
+        await tx.productVariant.deleteMany({
+          where: { productId: id },
+        });
+
+        // ایجاد سایزهای جدید
+        if (variants.length > 0) {
+          await tx.productVariant.createMany({
+            data: variants.map((v) => ({
+              productId: id,
+              name: v.name,
+              price: Number(v.price), // تبدیل به عدد برای جلوگیری از ارور Decimal
+            })),
+          });
+        }
+      }
+
+      return updatedProduct;
     });
 
-    return NextResponse.json(updated);
+    return NextResponse.json(result);
   } catch (error) {
-    console.error(error);
-    if (error.code === "P2025") {
-      return NextResponse.json({ message: "محصول یافت نشد" }, { status: 404 });
-    }
+    console.error("PUT Error:", error);
     return NextResponse.json(
       { message: error.message || "Internal Server Error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
 
-// تابع DELETE (حذف) آپدیت می‌شود
 export async function DELETE(request, { params }) {
   try {
     const { id: paramId } = await params;
     const id = parseInt(paramId);
 
-    // ۱. محصول را از دیتابیس می‌خوانیم تا URL عکس را داشته باشیم
     const productToDelete = await prisma.product.findUnique({
       where: { id: id },
       select: { imageUrl: true },
@@ -106,24 +124,20 @@ export async function DELETE(request, { params }) {
       return NextResponse.json({ message: "محصول یافت نشد" }, { status: 404 });
     }
 
-    // ۲. ابتدا محصول را از دیتابیس حذف می‌کنیم
     await prisma.product.delete({
       where: { id: id },
     });
 
-    // ۳. سپس عکس آن را از MinIO حذف می‌کنیم
-    // (این کار را بعد از حذف دیتابیس انجام می‌دهیم تا اگر دیتابیس فیل شد، عکس الکی پاک نشود)
-    await deleteFileFromS3(productToDelete.imageUrl);
+    if (productToDelete.imageUrl) {
+      await deleteFileFromS3(productToDelete.imageUrl);
+    }
 
     return NextResponse.json({ message: "محصول حذف شد" });
   } catch (error) {
     console.error(error);
-    if (error.code === "P2025") {
-      return NextResponse.json({ message: "محصول یافت نشد" }, { status: 404 });
-    }
     return NextResponse.json(
       { message: error.message || "Internal Server Error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

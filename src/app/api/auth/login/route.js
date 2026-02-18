@@ -11,7 +11,7 @@ export async function POST(request) {
     if (!username || !password) {
       return NextResponse.json(
         { message: "نام کاربری و رمز عبور الزامی است" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -22,7 +22,7 @@ export async function POST(request) {
     if (!user) {
       return NextResponse.json(
         { message: "نام کاربری یا رمز عبور اشتباه است" },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -33,7 +33,7 @@ export async function POST(request) {
       // اگر رمز عبور اشتباه بود
       return NextResponse.json(
         { message: "نام کاربری یا رمز عبور اشتباه است" },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -45,7 +45,8 @@ export async function POST(request) {
     };
 
     // تنظیم کوکی امن httpOnly
-    cookies().set("session", JSON.stringify(sessionData), {
+    const cookieStore = await cookies();
+    cookieStore.set("session", JSON.stringify(sessionData), {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       maxAge: 60 * 60 * 24, // 1 روز

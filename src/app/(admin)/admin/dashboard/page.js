@@ -9,8 +9,10 @@ import {
 } from "@/components/ui/card.jsx";
 import { Button } from "@/components/ui/button";
 
-function getUser() {
-  const sessionCookie = cookies().get("session")?.value;
+async function getUser() {
+  const cookieStore = await cookies();
+  const sessionCookie = cookieStore.get("session")?.value;
+
   if (!sessionCookie) return null;
   try {
     return JSON.parse(sessionCookie);

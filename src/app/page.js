@@ -1,7 +1,7 @@
 import { Logo } from "@/components/Logo/Logo";
 import { Header } from "@/components/Header/Header";
 import { MenuItems } from "@/components/MenuItem/MenuItems";
-import { prisma } from "@/lib/db"; // اطمینان از ایمپورت prisma
+import { prisma } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
@@ -13,17 +13,28 @@ async function getMenuData() {
           orderBy: {
             order: "asc",
           },
+          // 👇 این بخش حیاتی اضافه شد: دریافت سایزها از دیتابیس
+          include: {
+            variants: {
+              orderBy: { price: "asc" },
+            },
+          },
         },
       },
       orderBy: { order: "asc" },
     });
 
-    // --- اصلاحیه: تبدیل Decimal به Number ---
     const formattedData = data.map((category) => ({
       ...category,
       products: category.products.map((product) => ({
         ...product,
-        price: Number(product.price), // تبدیل قیمت به عدد ساده
+        // تبدیل قیمت پایه به عدد
+        price: Number(product.price),
+        // 👇 تبدیل قیمت سایزها به عدد (اگر محصول سایز داشته باشد)
+        variants: product.variants?.map((v) => ({
+          ...v,
+          price: Number(v.price),
+        })),
       })),
     }));
 
@@ -36,6 +47,7 @@ async function getMenuData() {
 
 export default async function Home() {
   const categoryAndSubsets = await getMenuData();
+
   const categories = categoryAndSubsets.map((item) => ({
     id: item.id,
     name: item.name,
