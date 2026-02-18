@@ -1,6 +1,6 @@
 <CORSConfiguration>
   <CORSRule>
-    <AllowedOrigin>http://localhost:3000</AllowedOrigin>
+    <AllowedOrigin>*</AllowedOrigin>
     <AllowedMethod>PUT</AllowedMethod>
     <AllowedMethod>GET</AllowedMethod>
     <AllowedMethod>HEAD</AllowedMethod>
