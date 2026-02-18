@@ -67,7 +67,7 @@ export function ProductActions({
           />
           <Button
             variant="outline"
-            className="w-auto text-green-700 border-green-200 hover:bg-green-50 hover:border-green-300"
+            className="w-auto text-green-700 border-green-200 hover:bg-green-50 hover:border-green-300 cursor-pointer"
             disabled={isImporting || isPageLoading}
           >
             {isImporting ? (
@@ -82,7 +82,7 @@ export function ProductActions({
         {/* دکمه اکسپورت */}
         <Button
           variant="outline"
-          className="text-blue-700 border-blue-200 hover:bg-blue-50 hover:border-blue-300"
+          className="text-blue-700 border-blue-200 hover:bg-blue-50 hover:border-blue-300 cursor-pointer"
           onClick={onExport}
           disabled={isPageLoading}
         >
