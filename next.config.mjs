@@ -1,6 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: "standalone",
   images: {
+    unoptimized: true,
     remotePatterns: [
       {
         protocol: "http",
@@ -23,6 +25,14 @@ const nextConfig = {
         port: "",
       },
     ],
+  },
+  async rewrites() {
+    return [
+      {
+        source: "/storage/:path*",
+        destination: "http://minio:9000/menu/:path*",
+      },
+    ];
   },
 };
 

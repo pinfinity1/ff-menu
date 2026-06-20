@@ -2,8 +2,30 @@ import { Toaster } from "sonner";
 import "./globals.css";
 
 export const metadata = {
-  title: "گرین فست‌ فود",
-  description: "ُاولین فست‌ فود دست‌ ساز",
+  title: "فست فود سبز",
+  description: "اولین فست فود دست ساز استان🌱",
+  keywords: [
+    "فست فود",
+    "شهرکرد",
+    "فست فود سبز",
+    "سالم",
+    "دست ساز",
+    "پیتزا",
+    "برگر",
+    "سفارش آنلاین غذا",
+  ],
+  openGraph: {
+    title: "فست فود سبز",
+    description: "بهترین فست فود دست‌ساز در شهرکرد.",
+    url: "https://greenfastfood.ir",
+    siteName: "فست فود سبز",
+    locale: "fa_IR",
+    type: "website",
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 export default function RootLayout({ children }) {
